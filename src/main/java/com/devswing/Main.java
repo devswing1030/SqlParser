@@ -1,9 +1,9 @@
 package com.devswing;
 
+import com.devswing.sqlparser.TableDefinition;
 import com.devswing.sqlparser.mysql.ConcreteParserListener;
 import com.devswing.sqlparser.mysql.MySqlLexer;
 import com.devswing.sqlparser.mysql.MySqlParser;
-import com.devswing.sqlparser.mysql.MySqlTableDefinition;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
@@ -48,8 +48,7 @@ public class Main {
         ParseTreeWalker walker = new ParseTreeWalker();
         walker.walk(listener, tree);
 
-        MySqlTableDefinition table = listener.getTables().get(0);
-        System.out.println(table);
+
 
 
 
