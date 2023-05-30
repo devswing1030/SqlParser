@@ -1,17 +1,12 @@
 package com.devswing.sqlparser.mysql;
 
-import com.devswing.sqlparser.ColumnDefinition;
-import com.devswing.sqlparser.ForeignKeyDefinition;
-import com.devswing.sqlparser.KeyDefinition;
-import com.devswing.sqlparser.TableDefinition;
+import com.devswing.sqlparser.*;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class ConcreteParserListenerTest {
     private static ConcreteParserListener getConcreteParserListener(String sql) {
@@ -59,6 +54,7 @@ class ConcreteParserListenerTest {
 
         Map<String, ColumnDefinition> columns = table.getColumns();
         assert(columns.size() == 3);
+
         ColumnDefinition column = columns.get("id");
         assert(column != null);
         assert(column.getProperty("name").equals("id"));
@@ -66,26 +62,23 @@ class ConcreteParserListenerTest {
         assert(column.getProperty("autoIncrement").equals("true"));
         assert(column.getProperty("primaryKey").equals("true"));
         assert(column.getProperty("notNull").equals("true"));
-        assert(column.getProperty("default") == null);
+        assert(column.getProperty("defaultValue").equals("NULL"));
 
         column = columns.get("name");
         assert(column != null);
         assert(column.getProperty("name").equals("name"));
         assert(column.getProperty("type").equals("varchar(255)"));
-        assert(column.getProperty("autoIncrement") == null);
-        assert(column.getProperty("primaryKey") == null);
-        assert(column.getProperty("notNull") == null);
-        assert(column.getProperty("default").equals("NULL"));
+        assert(column.getProperty("autoIncrement").equals("false"));
+        assert(column.getProperty("notNull").equals("false"));
+        assert(column.getProperty("defaultValue").equals("NULL"));
 
         column = columns.get("comment");
         assert(column != null);
         assert(column.getProperty("name").equals("comment"));
         assert(column.getProperty("type").equals("varchar(255)"));
-        assert(column.getProperty("autoIncrement") == null);
-        assert(column.getProperty("primaryKey") == null);
-        assert(column.getProperty("notNull") == null);
-        assert(column.getProperty("default").equals("NULL"));
-
+        assert(column.getProperty("autoIncrement").equals("false"));
+        assert(column.getProperty("notNull").equals("false"));
+        assert(column.getProperty("defaultValue").equals("NULL"));
     }
 
     @Test
@@ -195,7 +188,7 @@ class ConcreteParserListenerTest {
     void ChangedTables() {
         String sql = "alter table test RENAME TO user;";
         ConcreteParserListener listener = getConcreteParserListener(sql);
-        Map<String, TableDefinition> tables = listener.getChangedTables();
+        Map<String, TableDefinition> tables = listener.getAlteredTables();
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
         assert(table != null);
@@ -203,17 +196,33 @@ class ConcreteParserListenerTest {
     }
 
     @Test
-    void ChangeTables_DropColumn() {
-        String sql = "alter table test drop column name;";
+    void ChangeTables_Alter_Column() {
+        String sql = "alter table test drop column name;\n" +
+                "alter table test rename column comment to description;\n" +
+                "alter table test modify column id int(18) not null;\n"
+                ;
         ConcreteParserListener listener = getConcreteParserListener(sql);
-        Map<String, TableDefinition> tables = listener.getChangedTables();
+        Map<String, TableDefinition> tables = listener.getAlteredTables();
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
         assert(table != null);
-        Map<String, ColumnDefinition> columns = table.getColumns();
-        assert(columns.size() == 1);
+
+        Hashtable<String, ColumnDefinition> columns = table.getColumns();
+        assert(columns.size() == 3);
+
         ColumnDefinition column = columns.get("name");
-        assert(column.getDropped());
+        assert(column != null);
+        assert(column.getProperty("dropped").equals("true"));
+
+        column = columns.get("comment");
+        assert(column != null);
+        assert(column.getProperty("name").equals("description"));
+
+        column = columns.get("id");
+        assert(column != null);
+        assert(column.getProperty("type").equals("int(18)"));
+        assert(column.getProperty("notNull").equals("true"));
+        assert(column.getProperty("autoIncrement").equals("false"));
     }
 
     @Test

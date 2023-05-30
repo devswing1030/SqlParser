@@ -3,24 +3,25 @@ package com.devswing.sqlparser;
 import java.util.Hashtable;
 
 public class ColumnDefinition {
+
     private final Hashtable<String, String> properties = new Hashtable<>();
-    private boolean dropped = false;
 
-    public void setDropped(boolean dropped) {
-        this.dropped = dropped;
+    public void setProperty(String name, String value) {
+        properties.put(name, value);
     }
 
-    public boolean getDropped() {
-        return dropped;
+    public String getProperty(String name) {
+        return properties.get(name);
     }
 
-
-    public void setProperty(String key, String value) {
-        properties.put(key, value);
+    public Hashtable<String, String> getProperties() {
+        return properties;
     }
 
-
-    public String getProperty(String key) {
-        return properties.get(key);
+    public void setDefaultProperties() {
+        this.setProperty("defaultValue", "NULL");
+        this.setProperty("notNull", "false");
+        this.setProperty("autoIncrement", "false");
+        this.setProperty("comment", "");
     }
 }

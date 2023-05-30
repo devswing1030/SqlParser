@@ -1,16 +1,13 @@
 package com.devswing.sqlparser.mysql;
 
-import com.devswing.sqlparser.ColumnDefinition;
-import com.devswing.sqlparser.ForeignKeyDefinition;
-import com.devswing.sqlparser.KeyDefinition;
-import com.devswing.sqlparser.TableDefinition;
+import com.devswing.sqlparser.*;
 
 import java.util.*;
 
 public class ConcreteParserListener extends MySqlParserBaseListener {
 
     private final Map<String, TableDefinition> tables = new TreeMap<>();
-    private final Map<String, TableDefinition> changedTables = new TreeMap<>();
+    private final Map<String, TableDefinition> alteredTables = new TreeMap<>();
     private final HashSet<String> droppedTables = new HashSet<>();
 
     private TableDefinition currentTable;
@@ -20,8 +17,8 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         return tables;
     }
 
-    public Map<String, TableDefinition> getChangedTables() {
-        return changedTables;
+    public Map<String, TableDefinition> getAlteredTables() {
+        return alteredTables;
     }
 
     public HashSet<String> getDroppedTables() {
@@ -146,12 +143,13 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         currentColumn = new ColumnDefinition();
         currentColumn.setProperty("name", ctx.fullColumnName().getText());
         currentColumn.setProperty("type", ctx.columnDefinition().dataType().getText());
+        currentColumn.setDefaultProperties();
+        currentTable.addColumn(ctx.fullColumnName().getText(), currentColumn);
     }
 
     public void exitColumnDeclaration(MySqlParser.ColumnDeclarationContext ctx) {
         System.out.println("exitColumnDeclaration");
 
-        currentTable.addColumn(currentColumn);
     }
 
     public void enterCommentColumnConstraint(MySqlParser.CommentColumnConstraintContext ctx) {
@@ -187,20 +185,23 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterDefaultColumnConstraint(MySqlParser.DefaultColumnConstraintContext ctx) {
         System.out.println("enterDefaultColumnConstraint");
 
-        currentColumn.setProperty("default", ctx.defaultValue().getText());
+        currentColumn.setProperty("defaultValue", ctx.defaultValue().getText());
     }
 
     public void enterCollateColumnConstraint(MySqlParser.CollateColumnConstraintContext ctx) {
         System.out.println("enterCollateColumnConstraint");
 
-        currentColumn.setProperty("collate", ctx.collationName().getText());
     }
 
     public void enterAlterTable(MySqlParser.AlterTableContext ctx) {
         System.out.println("enterAlterTable");
 
-        currentTable = new TableDefinition();
-        changedTables.put(ctx.tableName().getText(), currentTable);
+        if (alteredTables.containsKey(ctx.tableName().getText())) {
+            currentTable = alteredTables.get(ctx.tableName().getText());
+        } else {
+            currentTable = new TableDefinition();
+            alteredTables.put(ctx.tableName().getText(), currentTable);
+        }
     }
 
     public void enterAlterByRename(MySqlParser.AlterByRenameContext ctx) {
@@ -219,10 +220,41 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         System.out.println("enterDropColumn");
 
         ColumnDefinition column = new ColumnDefinition();
-        column.setDropped(true);
-        currentTable.addColumn(ctx.uid().getText(), column);
-
+        column.setProperty("dropped", "true");
+        currentTable.addColumn(ctx.uid().getText(),column);
     }
+
+    public void enterAlterByRenameColumn(MySqlParser.AlterByRenameColumnContext ctx) {
+        System.out.println("enterAlterByRenameColumn");
+
+        if (Objects.equals(ctx.oldColumn.getText(), ctx.newColumn.getText()))
+            return;
+
+        ColumnDefinition column = getChangedColumn(ctx.oldColumn.getText());
+        column.setProperty("name", ctx.newColumn.getText());
+    }
+
+    public void enterAlterByModifyColumn(MySqlParser.AlterByModifyColumnContext ctx) {
+        System.out.println("enterAlterByModifyColumn");
+
+        ColumnDefinition column = getChangedColumn(ctx.uid(0).getText());
+        column.setDefaultProperties();
+        column.setProperty("type", ctx.columnDefinition().dataType().getText());
+    }
+
+    private ColumnDefinition getChangedColumn(String name) {
+        ColumnDefinition column = currentTable.getColumn(name);
+        if (column == null){
+            column = new ColumnDefinition();
+            currentTable.addColumn(name, column);
+        }
+        currentColumn = column;
+        return column;
+    }
+
+
+
+
 
 
 
