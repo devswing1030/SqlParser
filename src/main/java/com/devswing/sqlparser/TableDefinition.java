@@ -37,9 +37,27 @@ public class TableDefinition {
     public void addColumn(String name, ColumnDefinition column) {
 
         columns.put(name, column);
-        columnSequence.add(column);
-    }
 
+        if (column.getProperty("position") != null) {
+            String position = column.getProperty("position");
+            if (position.equals("FIRST")) {
+                columnSequence.add(0, column);
+            } else  {
+                // if position not equal FIRST, then it is the after column name
+                int index = 0;
+                for (ColumnDefinition col : columnSequence) {
+                    if (col.getProperty("name").equals(position)) {
+                        columnSequence.add(index + 1, column);
+                        break;
+                    }
+                    index++;
+                }
+            }
+        } else {
+            columnSequence.add(column);
+        }
+
+    }
 
     public void addKey(String name, KeyDefinition key) {
         keys.put(name, key);

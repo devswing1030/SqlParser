@@ -231,6 +231,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
             return;
 
         ColumnDefinition column = getChangedColumn(ctx.oldColumn.getText());
+        column.setProperty("oldName", ctx.oldColumn.getText());
         column.setProperty("name", ctx.newColumn.getText());
     }
 
@@ -250,6 +251,24 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         }
         currentColumn = column;
         return column;
+    }
+
+    public void enterAlterByAddColumn(MySqlParser.AlterByAddColumnContext ctx) {
+        System.out.println("enterAlterByAddColumn");
+
+        ColumnDefinition column = new ColumnDefinition();
+        column.setProperty("name", ctx.uid(0).getText());
+        column.setProperty("type", ctx.columnDefinition().dataType().getText());
+        column.setDefaultProperties();
+        currentTable.addColumn(ctx.uid(0).getText(), column);
+
+        column.setProperty("added", "true");
+        if (ctx.FIRST() != null) {
+            column.setProperty("position", "FIRST");
+        } else if (ctx.AFTER() != null) {
+            column.setProperty("position", ctx.uid(1).getText());
+        }
+        currentColumn = column;
     }
 
 

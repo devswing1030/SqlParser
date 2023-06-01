@@ -217,6 +217,7 @@ class ConcreteParserListenerTest {
         column = columns.get("comment");
         assert(column != null);
         assert(column.getProperty("name").equals("description"));
+        assert(column.getProperty("oldName").equals("comment"));
 
         column = columns.get("id");
         assert(column != null);
@@ -233,5 +234,56 @@ class ConcreteParserListenerTest {
         assert(tables.size() == 2);
         assert(tables.contains("test"));
         assert(tables.contains("user"));
+    }
+
+    @Test
+    void AddColumn() {
+        String sql = "create table test (\n" +
+                "  id int(11) NOT NULL AUTO_INCREMENT ,\n" +
+                "  type int(2) NOT NULL\n" +
+                ");\n" +
+                "alter table test add column name varchar(255) first;\n" +
+                "alter table test add column course varchar(255) after id;\n" +
+                "alter table test add column description varchar(255) ;\n" ;
+
+        System.out.println(sql);
+        ConcreteParserListener listener = getConcreteParserListener(sql);
+
+        Map<String, TableDefinition> tables = listener.getTables();
+        assert(tables.size() == 1);
+        TableDefinition table = tables.get("test");
+
+        Map<String, TableDefinition> alterTables = listener.getAlteredTables();
+        assert(alterTables.size() == 1);
+        TableDefinition alterTable = alterTables.get("test");
+        assert(alterTable != null);
+        Hashtable<String, ColumnDefinition> columns = alterTable.getColumns();
+        assert(columns.size() == 3);
+        ColumnDefinition column = columns.get("name");
+        assert(column != null);
+        assert(column.getProperty("type").equals("varchar(255)"));
+        assert(column.getProperty("position").equals("FIRST"));
+        table.addColumn(column.getProperty("name"), column);
+
+        column = columns.get("course");
+        assert(column != null);
+        assert(column.getProperty("type").equals("varchar(255)"));
+        assert(column.getProperty("position").equals("id"));
+        table.addColumn(column.getProperty("name"), column);
+
+        column = columns.get("description");
+        assert(column != null);
+        table.addColumn(column.getProperty("name"), column);
+
+
+        assert(table.getColumns().size() == 5);
+        List<ColumnDefinition> columnSeq = table.getColumnSequence();
+        assert(columnSeq.size() == 5);
+        assert(columnSeq.get(0).getProperty("name").equals("name"));
+        assert(columnSeq.get(1).getProperty("name").equals("id"));
+        assert(columnSeq.get(2).getProperty("name").equals("course"));
+        assert(columnSeq.get(3).getProperty("name").equals("type"));
+        assert(columnSeq.get(4).getProperty("name").equals("description"));
+
     }
 }
