@@ -59,6 +59,51 @@ public class TableDefinition {
 
     }
 
+    public void removeColumn(String name) {
+        columns.remove(name);
+        int index = 0;
+        for (ColumnDefinition col : columnSequence) {
+            if (col.getProperty("name").equals(name)) {
+                columnSequence.remove(index);
+                break;
+            }
+            index++;
+        }
+    }
+
+    public void renameColumn(String oldName, String newName) {
+        ColumnDefinition column = columns.get(oldName);
+        column.setProperty("name", newName);
+        columns.remove(oldName);
+        columns.put(newName, column);
+        int index = 0;
+        for (ColumnDefinition col : columnSequence) {
+            if (col.getProperty("name").equals(oldName)) {
+                columnSequence.remove(index);
+                columnSequence.add(index, column);
+                break;
+            }
+            index++;
+        }
+    }
+
+    public void addColumnToFirst(String name, ColumnDefinition column) {
+        columns.put(name, column);
+        columnSequence.add(0, column);
+    }
+
+    public void addColumnAfter(String name, ColumnDefinition column, String after) {
+        columns.put(name, column);
+        int index = 0;
+        for (ColumnDefinition col : columnSequence) {
+            if (col.getProperty("name").equals(after)) {
+                columnSequence.add(index + 1, column);
+                break;
+            }
+            index++;
+        }
+    }
+
     public void addKey(String name, KeyDefinition key) {
         keys.put(name, key);
     }
@@ -93,6 +138,10 @@ public class TableDefinition {
 
     public Hashtable<String, ForeignKeyDefinition> getForeignKeys() {
         return foreignKeys;
+    }
+
+    public void removeForeignKey(String name) {
+        foreignKeys.remove(name);
     }
 }
 

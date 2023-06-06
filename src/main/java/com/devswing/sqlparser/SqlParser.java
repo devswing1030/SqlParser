@@ -9,35 +9,26 @@ import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import java.util.HashSet;
 import java.util.Map;
+import java.util.TreeMap;
 
 public class SqlParser {
 
     ConcreteParserListener listener;
-    public SqlParser(String sql) {
-        listener = getConcreteParserListener(sql);
+    public SqlParser(String sql, TreeMap<String, TableDefinition> tables) {
+        listener = getConcreteParserListener(sql, tables);
     }
 
-    // Get dropped tables
-    public HashSet<String> getDroppedTables() {
-        return listener.getDroppedTables();
-    }
-
-    // Get created tables
     public Map<String, TableDefinition> getTables() {
         return listener.getTables();
     }
 
-    public Map<String, TableDefinition> getChangedTables() {
-        return listener.getAlteredTables();
-    }
-
-    private static ConcreteParserListener getConcreteParserListener(String sql) {
+    private static ConcreteParserListener getConcreteParserListener(String sql, TreeMap<String, TableDefinition> tables) {
         MySqlLexer lexer = new MySqlLexer(CharStreams.fromString(sql));
 
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         MySqlParser parser = new MySqlParser(tokens);
 
-        ConcreteParserListener listener = new ConcreteParserListener();
+        ConcreteParserListener listener = new ConcreteParserListener(tables);
 
         MySqlParser.RootContext tree = parser.root();
         System.out.println(tree.toStringTree(parser));

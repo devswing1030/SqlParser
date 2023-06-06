@@ -1,6 +1,7 @@
 package com.devswing.sqlparser;
 
 import java.util.ArrayList;
+import java.util.Hashtable;
 
 public class ForeignKeyDefinition {
     private final ArrayList<String> columns = new ArrayList<String>();
@@ -9,7 +10,9 @@ public class ForeignKeyDefinition {
 
     private final ArrayList<String> referencedColumns = new ArrayList<String>();
 
-    private Boolean dropped = false;
+    private final Hashtable<String, String> properties = new Hashtable<String, String>();
+
+
 
     public void addColumn(String column) {
         columns.add(column);
@@ -35,12 +38,15 @@ public class ForeignKeyDefinition {
         return referencedColumns;
     }
 
-    public void setDropped(Boolean dropped) {
-        this.dropped = dropped;
+    public void setProperty(String key, String value) {
+        properties.put(key, value);
     }
 
-    public Boolean getDropped() {
-        return dropped;
+    public String getProperty(String key) {
+        return properties.get(key);
     }
 
+    public Hashtable<String, String> getProperties() {
+        return properties;
+    }
 }

@@ -15,7 +15,9 @@ class ConcreteParserListenerTest {
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         MySqlParser parser = new MySqlParser(tokens);
 
-        ConcreteParserListener listener = new ConcreteParserListener();
+        TreeMap<String, TableDefinition> tables = new TreeMap<>();
+
+        ConcreteParserListener listener = new ConcreteParserListener(tables);
 
         MySqlParser.RootContext tree = parser.root();
         System.out.println(tree.toStringTree(parser));
@@ -27,7 +29,7 @@ class ConcreteParserListenerTest {
 
     @org.junit.jupiter.api.Test
     void createTables() {
-        String sql = "CREATE TABLE test (\n" +
+        String sql = "CREATE TABLE  `test` (\n" +
                 "  id int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,\n" +
                 "  name varchar(255) DEFAULT NULL,\n" +
                 "  comment varchar(255) DEFAULT NULL\n" +
@@ -119,9 +121,11 @@ class ConcreteParserListenerTest {
                 "KEY key1 (id, type),\n" +
                 "KEY (type),\n" +
                 "UNIQUE KEY key2 (name)," +
-                "CONSTRAINT  FOREIGN KEY (id, type) REFERENCES Type (id, type),\n" +
+                "CONSTRAINT  FOREIGN KEY (id, type) REFERENCES Type (id, type) ON DELETE CASCADE,\n" +
                 "CONSTRAINT FK_key1 FOREIGN KEY (id) REFERENCES ID (id)\n" +
-                ");"
+                ");\n" +
+                "Alter table test drop foreign key FK_key1;\n" +
+                "Alter table test add foreign key FK_key2 (id) REFERENCES ID (id);\n"
                 ;
 
         ConcreteParserListener listener = getConcreteParserListener(sql);
@@ -158,7 +162,7 @@ class ConcreteParserListenerTest {
 
         // check foreign keys
         Hashtable<String, ForeignKeyDefinition> foreignKeys = table.getForeignKeys();
-        assert(foreignKeys.size() == 2);
+        assert(foreignKeys.size() == 3);
 
         ForeignKeyDefinition foreignKey = foreignKeys.get("fk_idtype");
         assert(foreignKey != null);
@@ -169,6 +173,7 @@ class ConcreteParserListenerTest {
         assert(foreignKey.getColumns().size() == 2);
         assert(foreignKey.getColumns().get(0).equals("id"));
         assert(foreignKey.getColumns().get(1).equals("type"));
+        assert(foreignKey.getProperty("onDelete").equals("CASCADE"));
 
         foreignKey = foreignKeys.get("FK_key1");
         assert(foreignKey != null);
@@ -177,6 +182,11 @@ class ConcreteParserListenerTest {
         assert(foreignKey.getReferencedColumns().get(0).equals("id"));
         assert(foreignKey.getColumns().size() == 1);
         assert(foreignKey.getColumns().get(0).equals("id"));
+        assert(foreignKey.getProperty("dropped").equals("true"));
+
+        foreignKey = foreignKeys.get("FK_key2");
+        assert(foreignKey != null);
+        assert(foreignKey.getProperty("added").equals("true"));
 
 
 
@@ -186,35 +196,42 @@ class ConcreteParserListenerTest {
 
     @Test
     void ChangedTables() {
-        String sql = "alter table test RENAME TO user;";
+        String sql = "create table test (id int(2));\n" +
+                "alter table test RENAME TO `user`;";
         ConcreteParserListener listener = getConcreteParserListener(sql);
-        Map<String, TableDefinition> tables = listener.getAlteredTables();
+        Map<String, TableDefinition> tables = listener.getTables();
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
         assert(table != null);
         assert(table.getProperty("name").equals("user"));
+        assert(table.getProperty("oldName").equals("test"));
     }
 
     @Test
     void ChangeTables_Alter_Column() {
-        String sql = "alter table test drop column name;\n" +
-                "alter table test rename column comment to description;\n" +
+        String sql = "CREATE TABLE test (\n" +
+                "  id int(11) NOT NULL AUTO_INCREMENT ,\n" +
+                "  type int(2) NOT NULL,\n" +
+                "  name varchar(255) DEFAULT NULL,\n" +
+                "  comment varchar(255) DEFAULT NULL);\n" +
+                "alter table test drop column name;\n" +
+                "alter table test rename column `comment` to `description`;\n" +
                 "alter table test modify column id int(18) not null;\n"
                 ;
         ConcreteParserListener listener = getConcreteParserListener(sql);
-        Map<String, TableDefinition> tables = listener.getAlteredTables();
+        Map<String, TableDefinition> tables = listener.getTables();
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
         assert(table != null);
 
         Hashtable<String, ColumnDefinition> columns = table.getColumns();
-        assert(columns.size() == 3);
+        assert(columns.size() == 4);
 
         ColumnDefinition column = columns.get("name");
         assert(column != null);
         assert(column.getProperty("dropped").equals("true"));
 
-        column = columns.get("comment");
+        column = columns.get("description");
         assert(column != null);
         assert(column.getProperty("name").equals("description"));
         assert(column.getProperty("oldName").equals("comment"));
@@ -222,18 +239,29 @@ class ConcreteParserListenerTest {
         column = columns.get("id");
         assert(column != null);
         assert(column.getProperty("type").equals("int(18)"));
+        assert(column.getProperty("oldType").equals("int(11)"));
         assert(column.getProperty("notNull").equals("true"));
+        assert(column.getProperty("oldNotNull")==null);
         assert(column.getProperty("autoIncrement").equals("false"));
+        assert(column.getProperty("oldAutoIncrement").equals("true"));
     }
 
     @Test
     void DroppedTables() {
-        String sql = "drop table test, user;";
+        String sql = "create table test (id int(11));\n" +
+                "create table user (id int(11));\n" +
+                "drop table test, user;";
         ConcreteParserListener listener = getConcreteParserListener(sql);
-        HashSet<String> tables = listener.getDroppedTables();
+        Map<String, TableDefinition> tables = listener.getTables();
         assert(tables.size() == 2);
-        assert(tables.contains("test"));
-        assert(tables.contains("user"));
+        TableDefinition table = tables.get("test");
+        assert(table != null);
+        assert(table.getProperty("dropped").equals("true"));
+
+        table = tables.get("user");
+        assert(table != null);
+        assert(table.getProperty("dropped").equals("true"));
+
     }
 
     @Test
@@ -253,37 +281,18 @@ class ConcreteParserListenerTest {
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
 
-        Map<String, TableDefinition> alterTables = listener.getAlteredTables();
-        assert(alterTables.size() == 1);
-        TableDefinition alterTable = alterTables.get("test");
-        assert(alterTable != null);
-        Hashtable<String, ColumnDefinition> columns = alterTable.getColumns();
-        assert(columns.size() == 3);
-        ColumnDefinition column = columns.get("name");
-        assert(column != null);
-        assert(column.getProperty("type").equals("varchar(255)"));
-        assert(column.getProperty("position").equals("FIRST"));
-        table.addColumn(column.getProperty("name"), column);
 
-        column = columns.get("course");
-        assert(column != null);
-        assert(column.getProperty("type").equals("varchar(255)"));
-        assert(column.getProperty("position").equals("id"));
-        table.addColumn(column.getProperty("name"), column);
-
-        column = columns.get("description");
-        assert(column != null);
-        table.addColumn(column.getProperty("name"), column);
-
-
-        assert(table.getColumns().size() == 5);
         List<ColumnDefinition> columnSeq = table.getColumnSequence();
+
         assert(columnSeq.size() == 5);
         assert(columnSeq.get(0).getProperty("name").equals("name"));
+        assert(columnSeq.get(0).getProperty("added").equals("true"));
         assert(columnSeq.get(1).getProperty("name").equals("id"));
         assert(columnSeq.get(2).getProperty("name").equals("course"));
+        assert(columnSeq.get(2).getProperty("added").equals("true"));
         assert(columnSeq.get(3).getProperty("name").equals("type"));
         assert(columnSeq.get(4).getProperty("name").equals("description"));
+        assert(columnSeq.get(4).getProperty("added").equals("true"));
 
     }
 }

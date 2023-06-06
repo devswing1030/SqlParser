@@ -53943,6 +53943,13 @@ public class MySqlParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class TableNameContext extends ParserRuleContext {
+        public String getText() {
+            String name = super.getText();
+            if (name.startsWith("`") && name.endsWith("`")) {
+                return name.substring(1, name.length() - 1);
+            }
+            return name;
+        }
 		public FullIdContext fullId() {
 			return getRuleContext(FullIdContext.class,0);
 		}
@@ -54862,6 +54869,14 @@ public class MySqlParser extends Parser {
 
 	@SuppressWarnings("CheckReturnValue")
 	public static class UidContext extends ParserRuleContext {
+        public String getText() {
+            String id = super.getText();
+            if (id.startsWith("`") && id.endsWith("`")) {
+                return id.substring(1, id.length() - 1);
+            }
+            return id;
+
+        }
 		public SimpleIdContext simpleId() {
 			return getRuleContext(SimpleIdContext.class,0);
 		}

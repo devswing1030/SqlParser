@@ -6,43 +6,41 @@ import java.util.*;
 
 public class ConcreteParserListener extends MySqlParserBaseListener {
 
-    private final Map<String, TableDefinition> tables = new TreeMap<>();
-    private final Map<String, TableDefinition> alteredTables = new TreeMap<>();
-    private final HashSet<String> droppedTables = new HashSet<>();
-
+    private TreeMap<String, TableDefinition> tables;
     private TableDefinition currentTable;
     private ColumnDefinition currentColumn;
+    private Hashtable<String, String> currentColumnProperties;
+
+    public ConcreteParserListener(TreeMap<String, TableDefinition> tables) {
+        this.tables = tables;
+    }
 
     public Map<String, TableDefinition> getTables() {
         return tables;
     }
 
-    public Map<String, TableDefinition> getAlteredTables() {
-        return alteredTables;
+    public void setTables(TreeMap<String, TableDefinition> tables) {
+        this.tables = tables;
     }
-
-    public HashSet<String> getDroppedTables() {
-        return droppedTables;
-    }
-
 
     public void enterColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
         System.out.println("enterColumnCreateTable");
 
+        System.out.println(ctx.tableName().getText());
+
         currentTable = new TableDefinition();
-        currentTable.setProperty("name", ctx.tableName().getText());
+        currentTable.setProperty("name", (ctx.tableName().getText()));
+        tables.put(currentTable.getProperty("name"), currentTable);
     }
     public void exitColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
         System.out.println("exitColumnCreateTable");
-
-        tables.put(currentTable.getProperty("name"), currentTable);
     }
 
     public void enterPrimaryKeyTableConstraint(MySqlParser.PrimaryKeyTableConstraintContext ctx) {
         System.out.println("enterPrimaryKeyTableConstraint");
 
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            ColumnDefinition column = currentTable.getColumn(indexColumnName.uid().getText());
+            ColumnDefinition column = currentTable.getColumn((indexColumnName.uid().getText()));
             column.setProperty("primaryKey", "true");
         });
     }
@@ -54,17 +52,17 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         key.setUnique(true);
 
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            key.addColumn(indexColumnName.uid().getText());
+            key.addColumn((indexColumnName.uid().getText()));
         });
 
         StringBuilder finalKeyName = new StringBuilder("uk_");
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            finalKeyName.append(indexColumnName.uid().getText());
+            finalKeyName.append((indexColumnName.uid().getText()));
         });
         String keyName = finalKeyName.toString();
 
         if (ctx.uid() != null) {
-            keyName = ctx.uid(0).getText();
+            keyName = (ctx.uid(0).getText());
         }
 
         currentTable.addKey(keyName, key);
@@ -77,18 +75,18 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         ForeignKeyDefinition foreignKey = new ForeignKeyDefinition();
 
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            foreignKey.addColumn(indexColumnName.uid().getText());
+            foreignKey.addColumn((indexColumnName.uid().getText()));
         });
 
-        foreignKey.setReferencedTable(ctx.referenceDefinition().tableName().getText());
+        foreignKey.setReferencedTable((ctx.referenceDefinition().tableName().getText()));
 
         ctx.referenceDefinition().indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            foreignKey.addReferencedColumn(indexColumnName.uid().getText());
+            foreignKey.addReferencedColumn((indexColumnName.uid().getText()));
         });
 
         StringBuilder finalKeyName = new StringBuilder("fk_");
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            finalKeyName.append(indexColumnName.uid().getText());
+            finalKeyName.append((indexColumnName.uid().getText()));
         });
         String keyName = finalKeyName.toString();
 
@@ -97,7 +95,16 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
 
         if (ctx.uid() != null && ctx.uid().size() > 0) {
-            keyName = ctx.uid(0).getText();
+            keyName = (ctx.uid(0).getText());
+        }
+
+        if (ctx.referenceDefinition().referenceAction() != null) {
+            if (ctx.referenceDefinition().referenceAction().onDelete != null) {
+                foreignKey.setProperty("onDelete", (ctx.referenceDefinition().referenceAction().onDelete.getText()));
+            }
+            if (ctx.referenceDefinition().referenceAction().onUpdate != null) {
+                foreignKey.setProperty("onUpdate", (ctx.referenceDefinition().referenceAction().onUpdate.getText()));
+            }
         }
 
         currentTable.addForeignKey(keyName, foreignKey);
@@ -113,18 +120,18 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         key.setUnique(false);
 
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            key.addColumn(indexColumnName.uid().getText());
+            key.addColumn((indexColumnName.uid().getText()));
 
         });
 
         StringBuilder finalKeyName = new StringBuilder("idx_");
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            finalKeyName.append(indexColumnName.uid().getText());
+            finalKeyName.append((indexColumnName.uid().getText()));
         });
         String keyName = finalKeyName.toString();
 
         if (ctx.uid() != null) {
-            keyName = ctx.uid().getText();
+            keyName = (ctx.uid().getText());
         }
         currentTable.addKey(keyName, key);
 
@@ -141,10 +148,10 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         System.out.println("enterColumnDeclaration");
 
         currentColumn = new ColumnDefinition();
-        currentColumn.setProperty("name", ctx.fullColumnName().getText());
+        currentColumn.setProperty("name", (ctx.fullColumnName().getText()));
         currentColumn.setProperty("type", ctx.columnDefinition().dataType().getText());
         currentColumn.setDefaultProperties();
-        currentTable.addColumn(ctx.fullColumnName().getText(), currentColumn);
+        currentTable.addColumn((ctx.fullColumnName().getText()), currentColumn);
     }
 
     public void exitColumnDeclaration(MySqlParser.ColumnDeclarationContext ctx) {
@@ -196,58 +203,82 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterAlterTable(MySqlParser.AlterTableContext ctx) {
         System.out.println("enterAlterTable");
 
-        if (alteredTables.containsKey(ctx.tableName().getText())) {
-            currentTable = alteredTables.get(ctx.tableName().getText());
+        if (tables.containsKey((ctx.tableName().getText()))) {
+            currentTable = tables.get((ctx.tableName().getText()));
         } else {
-            currentTable = new TableDefinition();
-            alteredTables.put(ctx.tableName().getText(), currentTable);
+            throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
         }
     }
 
     public void enterAlterByRename(MySqlParser.AlterByRenameContext ctx) {
         System.out.println("enterAlterByRename");
 
-        currentTable.setProperty("name", ctx.uid().getText());
+        currentTable.setProperty("oldName", (currentTable.getProperty("name")));
+        currentTable.setProperty("name", (ctx.uid().getText()));
     }
 
     public void enterDropTable(MySqlParser.DropTableContext ctx) {
         System.out.println("enterDropTable");
 
-        ctx.tables().tableName().forEach(tableName -> droppedTables.add(tableName.getText()));
+        ctx.tables().tableName().forEach(tableName -> {
+            if (tables.containsKey((tableName.getText()))) {
+                tables.get((tableName.getText())).setProperty("dropped", "true");
+            } else {
+                throw new RuntimeException("Table " + (tableName.getText()) + " not found");
+            }
+        });
     }
 
     public void enterAlterByDropColumn(MySqlParser.AlterByDropColumnContext ctx)  {
         System.out.println("enterDropColumn");
 
-        ColumnDefinition column = new ColumnDefinition();
+        ColumnDefinition column = getChangedColumn((ctx.uid().getText()));
         column.setProperty("dropped", "true");
-        currentTable.addColumn(ctx.uid().getText(),column);
     }
 
     public void enterAlterByRenameColumn(MySqlParser.AlterByRenameColumnContext ctx) {
         System.out.println("enterAlterByRenameColumn");
 
-        if (Objects.equals(ctx.oldColumn.getText(), ctx.newColumn.getText()))
+        if (Objects.equals((ctx.oldColumn.getText()), (ctx.newColumn.getText())))
             return;
 
-        ColumnDefinition column = getChangedColumn(ctx.oldColumn.getText());
-        column.setProperty("oldName", ctx.oldColumn.getText());
-        column.setProperty("name", ctx.newColumn.getText());
+        ColumnDefinition column = getChangedColumn((ctx.oldColumn.getText()));
+        column.setProperty("oldName", (ctx.oldColumn.getText()));
+        currentTable.renameColumn((ctx.oldColumn.getText()), (ctx.newColumn.getText()));
     }
 
     public void enterAlterByModifyColumn(MySqlParser.AlterByModifyColumnContext ctx) {
         System.out.println("enterAlterByModifyColumn");
 
-        ColumnDefinition column = getChangedColumn(ctx.uid(0).getText());
+        ColumnDefinition column = getChangedColumn((ctx.uid(0).getText()));
+
+        currentColumnProperties = new Hashtable<>();
+        currentColumnProperties.putAll(column.getProperties());
         column.setDefaultProperties();
         column.setProperty("type", ctx.columnDefinition().dataType().getText());
+    }
+
+    public void exitAlterByModifyColumn(MySqlParser.AlterByModifyColumnContext ctx) {
+        System.out.println("exitAlterByModifyColumn");
+
+        ColumnDefinition column = getChangedColumn((ctx.uid(0).getText()));
+        for (String key : currentColumnProperties.keySet()) {
+            String v = currentColumnProperties.get(key);
+            //change the key to oldKey, for example from "notNull" to "oldNotNull"
+            String name = "old" + key.substring(0, 1).toUpperCase() + key.substring(1);
+            if (currentColumn.getProperty(key) == null) {
+                column.setProperty(name, v);
+            }
+            else if (!Objects.equals(currentColumn.getProperty(key), v)) {
+                column.setProperty(name, v);
+            }
+        }
     }
 
     private ColumnDefinition getChangedColumn(String name) {
         ColumnDefinition column = currentTable.getColumn(name);
         if (column == null){
-            column = new ColumnDefinition();
-            currentTable.addColumn(name, column);
+            throw new RuntimeException("Column " + name + " not found");
         }
         currentColumn = column;
         return column;
@@ -257,18 +288,70 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         System.out.println("enterAlterByAddColumn");
 
         ColumnDefinition column = new ColumnDefinition();
-        column.setProperty("name", ctx.uid(0).getText());
+        column.setProperty("name", (ctx.uid(0).getText()));
         column.setProperty("type", ctx.columnDefinition().dataType().getText());
         column.setDefaultProperties();
-        currentTable.addColumn(ctx.uid(0).getText(), column);
-
         column.setProperty("added", "true");
-        if (ctx.FIRST() != null) {
-            column.setProperty("position", "FIRST");
-        } else if (ctx.AFTER() != null) {
-            column.setProperty("position", ctx.uid(1).getText());
-        }
+
+        if (ctx.FIRST() != null)
+            currentTable.addColumnToFirst((ctx.uid(0).getText()), column);
+        else if (ctx.AFTER() != null)
+            currentTable.addColumnAfter((ctx.uid(0).getText()), column, (ctx.uid(1).getText()));
+        else
+            currentTable.addColumn((ctx.uid(0).getText()), column);
+
         currentColumn = column;
+    }
+
+    public void enterAlterByAddForeignKey(MySqlParser.AlterByAddForeignKeyContext ctx) {
+        System.out.println("enterAlterByAddForeignKey");
+
+        ForeignKeyDefinition foreignKey = new ForeignKeyDefinition();
+
+        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
+            foreignKey.addColumn(indexColumnName.uid().getText());
+        });
+
+        foreignKey.setReferencedTable((ctx.referenceDefinition().tableName().getText()));
+
+        ctx.referenceDefinition().indexColumnNames().indexColumnName().forEach(indexColumnName -> {
+            foreignKey.addReferencedColumn((indexColumnName.uid().getText()));
+        });
+
+        StringBuilder finalKeyName = new StringBuilder("fk_");
+        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
+            finalKeyName.append((indexColumnName.uid().getText()));
+        });
+        String keyName = finalKeyName.toString();
+
+        List<MySqlParser.UidContext> tmp = ctx.uid();
+
+        if (ctx.uid() != null && ctx.uid().size() > 0) {
+            keyName = (ctx.uid(0).getText());
+        }
+
+        foreignKey.setProperty("added", "true");
+
+        if (ctx.referenceDefinition().referenceAction() != null) {
+            if (ctx.referenceDefinition().referenceAction().onDelete != null) {
+                foreignKey.setProperty("onDelete", (ctx.referenceDefinition().referenceAction().onDelete.getText()));
+            }
+            if (ctx.referenceDefinition().referenceAction().onUpdate != null) {
+                foreignKey.setProperty("onUpdate", (ctx.referenceDefinition().referenceAction().onUpdate.getText()));
+            }
+        }
+
+        currentTable.addForeignKey(keyName, foreignKey);
+    }
+
+    public void enterAlterByDropForeignKey(MySqlParser.AlterByDropForeignKeyContext ctx) {
+        System.out.println("enterAlterByDropForeignKey");
+
+        ForeignKeyDefinition foreignKey = currentTable.getForeignKey((ctx.uid().getText()));
+        if (foreignKey == null){
+            throw new RuntimeException("Foreign key " + (ctx.uid().getText()) + " not found");
+        }
+        foreignKey.setProperty("dropped", "true");
     }
 
 
