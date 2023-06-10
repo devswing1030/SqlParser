@@ -12,8 +12,7 @@ public class TableDefinition {
 
     private final ArrayList<ColumnDefinition> columnSequence = new ArrayList<>();
 
-    private final HashSet<String> primaryKey = new HashSet<>();
-    private final Hashtable<String, KeyDefinition> keys = new Hashtable<>();
+    private final Hashtable<String, IndexDefinition> indexs = new Hashtable<>();
 
     private final Hashtable<String, ForeignKeyDefinition> foreignKeys = new Hashtable<>();
 
@@ -104,16 +103,16 @@ public class TableDefinition {
         }
     }
 
-    public void addKey(String name, KeyDefinition key) {
-        keys.put(name, key);
+    public void addIndex(String name, IndexDefinition key) {
+        indexs.put(name, key);
     }
 
-    public KeyDefinition getKey(String name) {
-        return keys.get(name);
+    public IndexDefinition getIndex(String name) {
+        return indexs.get(name);
     }
 
-    public Hashtable<String, KeyDefinition> getKeys() {
-        return keys;
+    public Hashtable<String, IndexDefinition> getIndexs() {
+        return indexs;
     }
 
     public ColumnDefinition getColumn(String name) {

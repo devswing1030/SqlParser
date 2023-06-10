@@ -11,6 +11,8 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     private ColumnDefinition currentColumn;
     private Hashtable<String, String> currentColumnProperties;
 
+    private boolean isAlterTable = false;
+
     public ConcreteParserListener(TreeMap<String, TableDefinition> tables) {
         this.tables = tables;
     }
@@ -26,8 +28,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
         System.out.println("enterColumnCreateTable");
 
-        System.out.println(ctx.tableName().getText());
-
+        isAlterTable = false;
         currentTable = new TableDefinition();
         currentTable.setProperty("name", (ctx.tableName().getText()));
         tables.put(currentTable.getProperty("name"), currentTable);
@@ -48,8 +49,9 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterUniqueKeyTableConstraint(MySqlParser.UniqueKeyTableConstraintContext ctx) {
         System.out.println("enterUniqueKeyTableConstraint");
 
-        KeyDefinition key = new KeyDefinition();
-        key.setUnique(true);
+        IndexDefinition key = new IndexDefinition();
+
+        key.setProperty("unique", "true");
 
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
             key.addColumn((indexColumnName.uid().getText()));
@@ -65,7 +67,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
             keyName = (ctx.uid(0).getText());
         }
 
-        currentTable.addKey(keyName, key);
+        currentTable.addIndex(keyName, key);
 
     }
 
@@ -116,8 +118,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterSimpleIndexDeclaration(MySqlParser.SimpleIndexDeclarationContext ctx) {
         System.out.println("enterSimpleIndexDeclaration");
 
-        KeyDefinition key = new KeyDefinition();
-        key.setUnique(false);
+        IndexDefinition key = new IndexDefinition();
 
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
             key.addColumn((indexColumnName.uid().getText()));
@@ -133,7 +134,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         if (ctx.uid() != null) {
             keyName = (ctx.uid().getText());
         }
-        currentTable.addKey(keyName, key);
+        currentTable.addIndex(keyName, key);
 
     }
 
@@ -174,7 +175,12 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterPrimaryKeyColumnConstraint(MySqlParser.PrimaryKeyColumnConstraintContext ctx) {
         System.out.println("enterPrimaryKeyColumnConstraint");
 
-        currentColumn.setProperty("primaryKey", "true");
+        if (!isAlterTable) {
+            currentColumn.setProperty("primaryKey", "true");
+        }
+        else {
+            currentColumn.setProperty("oldPrimaryKey", "false");
+        }
     }
 
     public void enterAutoIncrementColumnConstraint(MySqlParser.AutoIncrementColumnConstraintContext ctx) {
@@ -186,7 +192,10 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterUniqueKeyColumnConstraint(MySqlParser.UniqueKeyColumnConstraintContext ctx) {
         System.out.println("enterUniqueKeyColumnConstraint");
 
-        currentColumn.setProperty("unique", "true");
+        IndexDefinition key = new IndexDefinition();
+        key.addColumn(currentColumn.getProperty("name"));
+        key.setProperty("unique", "true");
+        currentTable.addIndex("uk_" + currentColumn.getProperty("name"), key);
     }
 
     public void enterDefaultColumnConstraint(MySqlParser.DefaultColumnConstraintContext ctx) {
@@ -203,11 +212,20 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterAlterTable(MySqlParser.AlterTableContext ctx) {
         System.out.println("enterAlterTable");
 
+        isAlterTable = true;
+
         if (tables.containsKey((ctx.tableName().getText()))) {
             currentTable = tables.get((ctx.tableName().getText()));
         } else {
             throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
         }
+        currentTable.setProperty("altered", "true");
+    }
+
+    public void exitAlterTable(MySqlParser.AlterTableContext ctx) {
+        System.out.println("exitAlterTable");
+
+        isAlterTable = false;
     }
 
     public void enterAlterByRename(MySqlParser.AlterByRenameContext ctx) {
@@ -352,6 +370,66 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
             throw new RuntimeException("Foreign key " + (ctx.uid().getText()) + " not found");
         }
         foreignKey.setProperty("dropped", "true");
+    }
+
+    public void enterAlterByDropIndex(MySqlParser.AlterByDropIndexContext ctx) {
+        System.out.println("enterAlterByDropIndex");
+
+        IndexDefinition index = currentTable.getIndex((ctx.uid().getText()));
+        if (index == null){
+            throw new RuntimeException("Index " + (ctx.uid().getText()) + " not found");
+        }
+        index.setProperty("dropped", "true");
+    }
+
+    public void enterAlterByAddIndex(MySqlParser.AlterByAddIndexContext ctx) {
+        System.out.println("enterAlterByAddIndex");
+
+        IndexDefinition index = new IndexDefinition();
+
+        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
+            index.addColumn(indexColumnName.uid().getText());
+        });
+
+        StringBuilder finalKeyName = new StringBuilder("idx_");
+        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
+            finalKeyName.append((indexColumnName.uid().getText()));
+        });
+        String keyName = finalKeyName.toString();
+
+        if (ctx.uid() != null) {
+            keyName = ctx.uid().getText();
+        }
+
+        index.setProperty("added", "true");
+
+        currentTable.addIndex(keyName, index);
+    }
+
+    public void enterAlterByDropPrimaryKey(MySqlParser.AlterByDropPrimaryKeyContext ctx) {
+        System.out.println("enterAlterByDropPrimaryKey");
+
+        List<ColumnDefinition> columns = currentTable.getColumnSequence();
+
+        for (ColumnDefinition column : columns) {
+            if (column.getProperty("primaryKey") != null) {
+                column.setProperty("primaryKey", "false");
+                column.setProperty("oldPrimaryKey", "true");
+            }
+        }
+
+    }
+
+    public void enterAlterByAddPrimaryKey(MySqlParser.AlterByAddPrimaryKeyContext ctx) {
+        System.out.println("enterAlterByAddPrimaryKey");
+
+        List<ColumnDefinition> columns = currentTable.getColumnSequence();
+
+        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
+            ColumnDefinition column = currentTable.getColumn((indexColumnName.uid().getText()));
+            column.setProperty("primaryKey", "true");
+            column.setProperty("oldPrimaryKey", "false");
+        });
     }
 
 

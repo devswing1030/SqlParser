@@ -92,7 +92,9 @@ class ConcreteParserListenerTest {
                 "  comment varchar(255) DEFAULT NULL,\n" +
                 "\n" +
                 "PRIMARY KEY (id, type)\n" +
-                ");"
+                ");\n" +
+                "alter table test drop primary key;\n"
+
                 ;
 
         ConcreteParserListener listener = getConcreteParserListener(sql);
@@ -104,10 +106,12 @@ class ConcreteParserListenerTest {
         assert(columns.size() == 4);
         ColumnDefinition column = columns.get("id");
         assert(column != null);
-        assert(column.getProperty("primaryKey").equals("true"));
+        assert(column.getProperty("primaryKey").equals("false"));
+        assert(column.getProperty("oldPrimaryKey").equals("true"));
         column = columns.get("type");
         assert(column != null);
-        assert(column.getProperty("primaryKey").equals("true"));
+        assert(column.getProperty("primaryKey").equals("false"));
+        assert(column.getProperty("oldPrimaryKey").equals("true"));
     }
 
     @Test
@@ -116,16 +120,19 @@ class ConcreteParserListenerTest {
                 "  id int(11) NOT NULL AUTO_INCREMENT ,\n" +
                 "  type int(2) NOT NULL,\n" +
                 "  name varchar(255) DEFAULT NULL,\n" +
+                "  person_id int(11) NOT NULL UNIQUE,\n" +
                 "  comment varchar(255) DEFAULT NULL,\n" +
                 "\n" +
                 "KEY key1 (id, type),\n" +
-                "KEY (type),\n" +
+                "INDEX (type),\n" +
                 "UNIQUE KEY key2 (name)," +
                 "CONSTRAINT  FOREIGN KEY (id, type) REFERENCES Type (id, type) ON DELETE CASCADE,\n" +
                 "CONSTRAINT FK_key1 FOREIGN KEY (id) REFERENCES ID (id)\n" +
                 ");\n" +
                 "Alter table test drop foreign key FK_key1;\n" +
-                "Alter table test add foreign key FK_key2 (id) REFERENCES ID (id);\n"
+                "Alter table test add foreign key FK_key2 (id) REFERENCES ID (id);\n" +
+                "Alter table test drop index key1;\n" +
+                "Alter table test add index idx_comment (comment);"
                 ;
 
         ConcreteParserListener listener = getConcreteParserListener(sql);
@@ -135,30 +142,45 @@ class ConcreteParserListenerTest {
         assert(table != null);
 
         // check keys
-        Hashtable<String, KeyDefinition> keys = table.getKeys();
-        assert(keys.size() == 3);
+        Hashtable<String, IndexDefinition> keys = table.getIndexs();
+        assert(keys.size() == 5);
 
-        KeyDefinition key = keys.get("key1");
+        IndexDefinition key = keys.get("key1");
         assert(key != null);
-        assert(!key.getUnique());
+        assert(key.getProperty("unique") == null);
         ArrayList<String> columns = key.getColumns();
         assert(columns.size() == 2);
         assert(columns.get(0).equals("id"));
         assert(columns.get(1).equals("type"));
+        assert(key.getProperty("dropped").equals("true"));
 
         key = keys.get("idx_type");
         assert(key != null);
-        assert(!key.getUnique());
+        assert(key.getProperty("unique")==null);
         columns = key.getColumns();
         assert(columns.size() == 1);
         assert(columns.get(0).equals("type"));
 
         key = keys.get("key2");
         assert(key != null);
-        assert(key.getUnique());
+        assert(key.getProperty("unique").equals("true"));
         columns = key.getColumns();
         assert(columns.size() == 1);
         assert(columns.get(0).equals("name"));
+
+        key = keys.get("uk_person_id");
+        assert(key != null);
+        assert(key.getProperty("unique").equals("true"));
+        columns = key.getColumns();
+        assert(columns.size() == 1);
+        assert(columns.get(0).equals("person_id"));
+
+        key = keys.get("idx_comment");
+        assert(key != null);
+        assert(key.getProperty("unique")==null);
+        columns = key.getColumns();
+        assert(columns.size() == 1);
+        assert(columns.get(0).equals("comment"));
 
         // check foreign keys
         Hashtable<String, ForeignKeyDefinition> foreignKeys = table.getForeignKeys();
@@ -205,6 +227,8 @@ class ConcreteParserListenerTest {
         assert(table != null);
         assert(table.getProperty("name").equals("user"));
         assert(table.getProperty("oldName").equals("test"));
+
+        assert(table.getProperty("altered").equals("true"));
     }
 
     @Test
