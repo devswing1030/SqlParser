@@ -219,7 +219,9 @@ class ConcreteParserListenerTest {
     @Test
     void ChangedTables() {
         String sql = "create table test (id int(2));\n" +
-                "alter table test RENAME TO `user`;";
+                "alter table test RENAME TO `user`;\n" +
+                "alter table test comment 'test';\n"
+                ;
         ConcreteParserListener listener = getConcreteParserListener(sql);
         Map<String, TableDefinition> tables = listener.getTables();
         assert(tables.size() == 1);
@@ -229,6 +231,9 @@ class ConcreteParserListenerTest {
         assert(table.getProperty("oldName").equals("test"));
 
         assert(table.getProperty("altered").equals("true"));
+
+        assert(table.getProperty("comment").equals("test"));
+        assert(table.getProperty("oldComment").equals(""));
     }
 
     @Test

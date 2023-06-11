@@ -13,6 +13,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     private static final Logger LOGGER = LogManager.getLogger(ConcreteParserListener.class);
 
     private TreeMap<String, TableDefinition> tables;
+    private boolean isAlter = false;
     private TableDefinition currentTable;
     private ColumnDefinition currentColumn;
     private Hashtable<String, String> currentColumnProperties;
@@ -21,6 +22,11 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
     public ConcreteParserListener(TreeMap<String, TableDefinition> tables) {
         this.tables = tables;
+    }
+
+    public ConcreteParserListener(TreeMap<String, TableDefinition> tables, boolean isAlter) {
+        this.tables = tables;
+        this.isAlter = isAlter;
     }
 
     public Map<String, TableDefinition> getTables() {
@@ -39,6 +45,9 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         isAlterTable = false;
         currentTable = new TableDefinition();
         currentTable.setProperty("name", (ctx.tableName().getText()));
+        if (isAlter) {
+            currentTable.setProperty("new", "true");
+        }
         tables.put(currentTable.getProperty("name"), currentTable);
     }
     public void exitColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
@@ -150,7 +159,14 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void exitTableOptionComment(MySqlParser.TableOptionCommentContext ctx) {
         LOGGER.debug("exitTableOptionComment");
 
-        currentTable.setProperty("comment", ctx.STRING_LITERAL().getText());
+        if (isAlterTable) {
+            currentTable.setProperty("oldComment", currentTable.getProperty("comment"));
+        }
+
+        String comment = ctx.STRING_LITERAL().getText();
+        comment = comment.substring(1, comment.length() - 1);
+
+        currentTable.setProperty("comment", comment);
     }
 
     public  void enterColumnDeclaration(MySqlParser.ColumnDeclarationContext ctx) {
@@ -171,7 +187,10 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterCommentColumnConstraint(MySqlParser.CommentColumnConstraintContext ctx) {
         LOGGER.debug("enterCommentColumnConstraint");
 
-        currentColumn.setProperty("comment", ctx.STRING_LITERAL().getText());
+        String comment = ctx.STRING_LITERAL().getText();
+        comment = comment.substring(1, comment.length() - 1);
+
+        currentColumn.setProperty("comment", comment);
     }
 
     public void enterNullColumnConstraint(MySqlParser.NullColumnConstraintContext ctx) {

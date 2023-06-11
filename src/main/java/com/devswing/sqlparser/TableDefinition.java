@@ -16,6 +16,13 @@ public class TableDefinition {
 
     private final Hashtable<String, ForeignKeyDefinition> foreignKeys = new Hashtable<>();
 
+    public TableDefinition() {
+        setDefaultProperties();
+    }
+    public void setDefaultProperties() {
+        this.setProperty("comment", "");
+    }
+
     public void setProperty(String key, String value) {
 
         properties.put(key, value);

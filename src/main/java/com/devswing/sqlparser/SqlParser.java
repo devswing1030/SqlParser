@@ -12,22 +12,30 @@ import java.io.IOException;
 import java.util.TreeMap;
 
 public class SqlParser {
-    public static void parseFromString(String sql, TreeMap<String, TableDefinition> tables) {
-        parse(CharStreams.fromString(sql), tables);
+    public static void parseFromString(String sql, TreeMap<String, TableDefinition> tables ) {
+        parseFromString(sql, tables, false);
+    }
+
+    public static void parseFromString(String sql, TreeMap<String, TableDefinition> tables, boolean isAlter) {
+        parse(CharStreams.fromString(sql), tables, isAlter);
     }
 
     public static void parseFromFile(String filePath, TreeMap<String, TableDefinition> tables) throws IOException {
-        parse(CharStreams.fromFileName(filePath), tables);
+        parseFromFile(filePath, tables, false);
+    }
+
+    public static void parseFromFile(String filePath, TreeMap<String, TableDefinition> tables, boolean isAlter) throws IOException {
+        parse(CharStreams.fromFileName(filePath), tables, isAlter);
     }
 
 
-    private static void parse(CharStream s, TreeMap<String, TableDefinition> tables) {
+    private static void parse(CharStream s, TreeMap<String, TableDefinition> tables, boolean isAlter) {
         MySqlLexer lexer = new MySqlLexer(s);
 
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         MySqlParser parser = new MySqlParser(tokens);
 
-        ConcreteParserListener listener = new ConcreteParserListener(tables);
+        ConcreteParserListener listener = new ConcreteParserListener(tables, isAlter);
 
         MySqlParser.RootContext tree = parser.root();
 
