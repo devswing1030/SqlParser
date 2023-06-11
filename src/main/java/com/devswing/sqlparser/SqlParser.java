@@ -3,27 +3,26 @@ package com.devswing.sqlparser;
 import com.devswing.sqlparser.mysql.ConcreteParserListener;
 import com.devswing.sqlparser.mysql.MySqlLexer;
 import com.devswing.sqlparser.mysql.MySqlParser;
+import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
-import java.util.HashSet;
-import java.util.Map;
+import java.io.IOException;
 import java.util.TreeMap;
 
 public class SqlParser {
-
-    ConcreteParserListener listener;
-    public SqlParser(String sql, TreeMap<String, TableDefinition> tables) {
-        listener = getConcreteParserListener(sql, tables);
+    public static void parseFromString(String sql, TreeMap<String, TableDefinition> tables) {
+        parse(CharStreams.fromString(sql), tables);
     }
 
-    public Map<String, TableDefinition> getTables() {
-        return listener.getTables();
+    public static void parseFromFile(String filePath, TreeMap<String, TableDefinition> tables) throws IOException {
+        parse(CharStreams.fromFileName(filePath), tables);
     }
 
-    private static ConcreteParserListener getConcreteParserListener(String sql, TreeMap<String, TableDefinition> tables) {
-        MySqlLexer lexer = new MySqlLexer(CharStreams.fromString(sql));
+
+    private static void parse(CharStream s, TreeMap<String, TableDefinition> tables) {
+        MySqlLexer lexer = new MySqlLexer(s);
 
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         MySqlParser parser = new MySqlParser(tokens);
@@ -31,10 +30,8 @@ public class SqlParser {
         ConcreteParserListener listener = new ConcreteParserListener(tables);
 
         MySqlParser.RootContext tree = parser.root();
-        System.out.println(tree.toStringTree(parser));
 
         ParseTreeWalker walker = new ParseTreeWalker();
         walker.walk(listener, tree);
-        return listener;
     }
 }

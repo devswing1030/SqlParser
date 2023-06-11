@@ -274,7 +274,9 @@ class ConcreteParserListenerTest {
     void DroppedTables() {
         String sql = "create table test (id int(11));\n" +
                 "create table user (id int(11));\n" +
-                "drop table test, user;";
+                "drop table test, user;\n" +
+                "drop table if exists user1;"
+                ;
         ConcreteParserListener listener = getConcreteParserListener(sql);
         Map<String, TableDefinition> tables = listener.getTables();
         assert(tables.size() == 2);

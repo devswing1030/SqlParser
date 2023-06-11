@@ -1,10 +1,16 @@
 package com.devswing.sqlparser.mysql;
 
+
 import com.devswing.sqlparser.*;
 
 import java.util.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 
 public class ConcreteParserListener extends MySqlParserBaseListener {
+
+    private static final Logger LOGGER = LogManager.getLogger(ConcreteParserListener.class);
 
     private TreeMap<String, TableDefinition> tables;
     private TableDefinition currentTable;
@@ -26,7 +32,9 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
-        System.out.println("enterColumnCreateTable");
+        LOGGER.debug("enterColumnCreateTable");
+
+        LOGGER.info("Create table : " + ctx.tableName().getText());
 
         isAlterTable = false;
         currentTable = new TableDefinition();
@@ -34,11 +42,11 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         tables.put(currentTable.getProperty("name"), currentTable);
     }
     public void exitColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
-        System.out.println("exitColumnCreateTable");
+        LOGGER.debug("exitColumnCreateTable");
     }
 
     public void enterPrimaryKeyTableConstraint(MySqlParser.PrimaryKeyTableConstraintContext ctx) {
-        System.out.println("enterPrimaryKeyTableConstraint");
+        LOGGER.debug("enterPrimaryKeyTableConstraint");
 
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
             ColumnDefinition column = currentTable.getColumn((indexColumnName.uid().getText()));
@@ -47,7 +55,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterUniqueKeyTableConstraint(MySqlParser.UniqueKeyTableConstraintContext ctx) {
-        System.out.println("enterUniqueKeyTableConstraint");
+        LOGGER.debug("enterUniqueKeyTableConstraint");
 
         IndexDefinition key = new IndexDefinition();
 
@@ -72,7 +80,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterForeignKeyTableConstraint(MySqlParser.ForeignKeyTableConstraintContext ctx) {
-        System.out.println("enterForeignKeyTableConstraint");
+        LOGGER.debug("enterForeignKeyTableConstraint");
 
         ForeignKeyDefinition foreignKey = new ForeignKeyDefinition();
 
@@ -116,7 +124,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterSimpleIndexDeclaration(MySqlParser.SimpleIndexDeclarationContext ctx) {
-        System.out.println("enterSimpleIndexDeclaration");
+        LOGGER.debug("enterSimpleIndexDeclaration");
 
         IndexDefinition key = new IndexDefinition();
 
@@ -140,13 +148,13 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
 
     public void exitTableOptionComment(MySqlParser.TableOptionCommentContext ctx) {
-        System.out.println("exitTableOptionComment");
+        LOGGER.debug("exitTableOptionComment");
 
         currentTable.setProperty("comment", ctx.STRING_LITERAL().getText());
     }
 
     public  void enterColumnDeclaration(MySqlParser.ColumnDeclarationContext ctx) {
-        System.out.println("enterColumnDeclaration");
+        LOGGER.debug("enterColumnDeclaration");
 
         currentColumn = new ColumnDefinition();
         currentColumn.setProperty("name", (ctx.fullColumnName().getText()));
@@ -156,24 +164,24 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void exitColumnDeclaration(MySqlParser.ColumnDeclarationContext ctx) {
-        System.out.println("exitColumnDeclaration");
+        LOGGER.debug("exitColumnDeclaration");
 
     }
 
     public void enterCommentColumnConstraint(MySqlParser.CommentColumnConstraintContext ctx) {
-        System.out.println("enterCommentColumnConstraint");
+        LOGGER.debug("enterCommentColumnConstraint");
 
         currentColumn.setProperty("comment", ctx.STRING_LITERAL().getText());
     }
 
     public void enterNullColumnConstraint(MySqlParser.NullColumnConstraintContext ctx) {
-        System.out.println("enterNullColumnConstraint");
+        LOGGER.debug("enterNullColumnConstraint");
 
         currentColumn.setProperty("notNull", "true");
     }
 
     public void enterPrimaryKeyColumnConstraint(MySqlParser.PrimaryKeyColumnConstraintContext ctx) {
-        System.out.println("enterPrimaryKeyColumnConstraint");
+        LOGGER.debug("enterPrimaryKeyColumnConstraint");
 
         if (!isAlterTable) {
             currentColumn.setProperty("primaryKey", "true");
@@ -184,13 +192,13 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterAutoIncrementColumnConstraint(MySqlParser.AutoIncrementColumnConstraintContext ctx) {
-        System.out.println("enterAutoIncrementColumnConstraint");
+        LOGGER.debug("enterAutoIncrementColumnConstraint");
 
         currentColumn.setProperty("autoIncrement", "true");
     }
 
     public void enterUniqueKeyColumnConstraint(MySqlParser.UniqueKeyColumnConstraintContext ctx) {
-        System.out.println("enterUniqueKeyColumnConstraint");
+        LOGGER.debug("enterUniqueKeyColumnConstraint");
 
         IndexDefinition key = new IndexDefinition();
         key.addColumn(currentColumn.getProperty("name"));
@@ -199,18 +207,20 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterDefaultColumnConstraint(MySqlParser.DefaultColumnConstraintContext ctx) {
-        System.out.println("enterDefaultColumnConstraint");
+        LOGGER.debug("enterDefaultColumnConstraint");
 
         currentColumn.setProperty("defaultValue", ctx.defaultValue().getText());
     }
 
     public void enterCollateColumnConstraint(MySqlParser.CollateColumnConstraintContext ctx) {
-        System.out.println("enterCollateColumnConstraint");
+        LOGGER.debug("enterCollateColumnConstraint");
 
     }
 
     public void enterAlterTable(MySqlParser.AlterTableContext ctx) {
-        System.out.println("enterAlterTable");
+        LOGGER.debug("enterAlterTable");
+
+        LOGGER.info("Alter table: " + ctx.tableName().getText() );
 
         isAlterTable = true;
 
@@ -223,39 +233,41 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void exitAlterTable(MySqlParser.AlterTableContext ctx) {
-        System.out.println("exitAlterTable");
+        LOGGER.debug("exitAlterTable");
 
         isAlterTable = false;
     }
 
     public void enterAlterByRename(MySqlParser.AlterByRenameContext ctx) {
-        System.out.println("enterAlterByRename");
+        LOGGER.debug("enterAlterByRename");
 
         currentTable.setProperty("oldName", (currentTable.getProperty("name")));
         currentTable.setProperty("name", (ctx.uid().getText()));
     }
 
     public void enterDropTable(MySqlParser.DropTableContext ctx) {
-        System.out.println("enterDropTable");
+        LOGGER.debug("enterDropTable");
+
 
         ctx.tables().tableName().forEach(tableName -> {
             if (tables.containsKey((tableName.getText()))) {
                 tables.get((tableName.getText())).setProperty("dropped", "true");
             } else {
-                throw new RuntimeException("Table " + (tableName.getText()) + " not found");
+                if (ctx.ifExists() == null)
+                    throw new RuntimeException("Table " + (tableName.getText()) + " not found");
             }
         });
     }
 
     public void enterAlterByDropColumn(MySqlParser.AlterByDropColumnContext ctx)  {
-        System.out.println("enterDropColumn");
+        LOGGER.debug("enterDropColumn");
 
         ColumnDefinition column = getChangedColumn((ctx.uid().getText()));
         column.setProperty("dropped", "true");
     }
 
     public void enterAlterByRenameColumn(MySqlParser.AlterByRenameColumnContext ctx) {
-        System.out.println("enterAlterByRenameColumn");
+        LOGGER.debug("enterAlterByRenameColumn");
 
         if (Objects.equals((ctx.oldColumn.getText()), (ctx.newColumn.getText())))
             return;
@@ -266,7 +278,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterAlterByModifyColumn(MySqlParser.AlterByModifyColumnContext ctx) {
-        System.out.println("enterAlterByModifyColumn");
+        LOGGER.debug("enterAlterByModifyColumn");
 
         ColumnDefinition column = getChangedColumn((ctx.uid(0).getText()));
 
@@ -277,7 +289,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void exitAlterByModifyColumn(MySqlParser.AlterByModifyColumnContext ctx) {
-        System.out.println("exitAlterByModifyColumn");
+        LOGGER.debug("exitAlterByModifyColumn");
 
         ColumnDefinition column = getChangedColumn((ctx.uid(0).getText()));
         for (String key : currentColumnProperties.keySet()) {
@@ -303,7 +315,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterAlterByAddColumn(MySqlParser.AlterByAddColumnContext ctx) {
-        System.out.println("enterAlterByAddColumn");
+        LOGGER.debug("enterAlterByAddColumn");
 
         ColumnDefinition column = new ColumnDefinition();
         column.setProperty("name", (ctx.uid(0).getText()));
@@ -322,7 +334,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterAlterByAddForeignKey(MySqlParser.AlterByAddForeignKeyContext ctx) {
-        System.out.println("enterAlterByAddForeignKey");
+        LOGGER.debug("enterAlterByAddForeignKey");
 
         ForeignKeyDefinition foreignKey = new ForeignKeyDefinition();
 
@@ -363,7 +375,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterAlterByDropForeignKey(MySqlParser.AlterByDropForeignKeyContext ctx) {
-        System.out.println("enterAlterByDropForeignKey");
+        LOGGER.debug("enterAlterByDropForeignKey");
 
         ForeignKeyDefinition foreignKey = currentTable.getForeignKey((ctx.uid().getText()));
         if (foreignKey == null){
@@ -373,7 +385,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterAlterByDropIndex(MySqlParser.AlterByDropIndexContext ctx) {
-        System.out.println("enterAlterByDropIndex");
+        LOGGER.debug("enterAlterByDropIndex");
 
         IndexDefinition index = currentTable.getIndex((ctx.uid().getText()));
         if (index == null){
@@ -383,7 +395,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterAlterByAddIndex(MySqlParser.AlterByAddIndexContext ctx) {
-        System.out.println("enterAlterByAddIndex");
+        LOGGER.debug("enterAlterByAddIndex");
 
         IndexDefinition index = new IndexDefinition();
 
@@ -407,7 +419,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterAlterByDropPrimaryKey(MySqlParser.AlterByDropPrimaryKeyContext ctx) {
-        System.out.println("enterAlterByDropPrimaryKey");
+        LOGGER.debug("enterAlterByDropPrimaryKey");
 
         List<ColumnDefinition> columns = currentTable.getColumnSequence();
 
@@ -421,7 +433,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     }
 
     public void enterAlterByAddPrimaryKey(MySqlParser.AlterByAddPrimaryKeyContext ctx) {
-        System.out.println("enterAlterByAddPrimaryKey");
+        LOGGER.debug("enterAlterByAddPrimaryKey");
 
         List<ColumnDefinition> columns = currentTable.getColumnSequence();
 
