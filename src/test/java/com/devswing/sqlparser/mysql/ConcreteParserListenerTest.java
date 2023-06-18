@@ -342,10 +342,10 @@ class ConcreteParserListenerTest {
     void parseColumnComment() {
         String sql = "create table test (\n" +
                 "  id int(11) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码' ,\n" +
-                "  type int(2) NOT NULL COMMENT ' : 用户类型 : enumVal 1-普通用户,2-VIP用户, 3-SVIP',\n" +
+                "  type int(2) NOT NULL COMMENT ' : 用户类型 : 1-普通用户,2-VIP用户, 3-SVIP',\n" +
                 "  name varchar(255) DEFAULT NULL\n" +
                 "); \n" +
-                "alter table test modify column type int(2) NOT NULL COMMENT '类型 : : enumVal 1-普通用户,2-VIP客户, 4-SuperVIP';\n" +
+                "alter table test modify column type int(2) NOT NULL COMMENT '类型 : : 1-普通用户,2-VIP客户, 4-SuperVIP';\n" +
                 "alter table test modify column id int(12) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码 ';\n"
                 ;
         TreeMap<String, TableDefinition> tables = new TreeMap<>();

@@ -13,8 +13,6 @@ public class ColumnComment {
 
     private TreeMap<String, String> enums = new TreeMap<>();
 
-    private String enumRefTable = null;
-    private String enumRefColumn = null;
 
     boolean parse(String commentStr) {
         String[] parts = commentStr.split(":");
@@ -36,57 +34,23 @@ public class ColumnComment {
         }
 
         // judge if the third part start with enumTable or enumVal and remove the enumTable or enumVal
-        boolean isEnumValue;
-        String enumStr;
-        if (parts[2].startsWith("enumTable ")) {
-            isEnumValue = false;
-            enumStr = parts[2].substring("enumTable ".length());
-        }
-        else if (parts[2].startsWith("enumVal ")) {
-            isEnumValue = true;
-            enumStr = parts[2].substring("enumVal ".length());
-        }
-        else {
-            LOGGER.error("Invalid enum part: " + parts[2]);
-            return false;
-        }
 
-        String[] enumParts = enumStr.split(",");
+        String[] enumParts = parts[2].split(",");
 
-
-        if (isEnumValue) {
-            for (String enumPart : enumParts) {
-                String[] enumKV = enumPart.split("-");
-                // trim each part
-                for (int i = 0; i < enumKV.length; i++) {
-                    enumKV[i] = enumKV[i].trim();
-                }
-                if (enumKV.length == 2) {
-                    this.enums.put(enumKV[0], enumKV[1]);
-                } else {
-                    LOGGER.warn("Invalid enum part: " + enumPart);
-                    return false;
-                }
-            }
-        }
-        else {
-            // enumTable tablename(columnname), get the tablename and columnname
-            String[] enumTableParts = enumStr.split("\\(");
+        for (String enumPart : enumParts) {
+            String[] enumKV = enumPart.split("-");
             // trim each part
-            for (int i = 0; i < enumTableParts.length; i++) {
-                enumTableParts[i] = enumTableParts[i].trim();
+            for (int i = 0; i < enumKV.length; i++) {
+                enumKV[i] = enumKV[i].trim();
             }
-            if (enumTableParts.length != 2) {
-                LOGGER.error("Invalid enumTable part: " + enumStr);
+            if (enumKV.length == 2) {
+                this.enums.put(enumKV[0], enumKV[1]);
+            } else {
+                LOGGER.warn("Invalid enum part: " + enumPart);
                 return false;
             }
-            if (!enumTableParts[1].endsWith(")")) {
-                LOGGER.error("Invalid enumTable part: " + enumStr);
-                return false;
-            }
-            enumRefTable =  enumTableParts[0];
-            enumRefColumn = enumTableParts[1].substring(0, enumTableParts[1].length() - 1);
         }
+
         return  true;
     }
 
@@ -117,13 +81,5 @@ public class ColumnComment {
 
     public TreeMap<String, String> getEnums() {
         return enums;
-    }
-
-    public String getEnumRefTable() {
-        return enumRefTable;
-    }
-
-    public String getEnumRefColumn() {
-        return enumRefColumn;
     }
 }
