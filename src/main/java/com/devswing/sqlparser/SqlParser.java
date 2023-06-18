@@ -9,6 +9,7 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import java.io.IOException;
+import java.util.Hashtable;
 import java.util.TreeMap;
 
 public class SqlParser {
@@ -35,37 +36,36 @@ public class SqlParser {
     }
 
     public void parseFromString(String sql, TreeMap<String, TableDefinition> tables) {
-        parse(CharStreams.fromString(sql), tables);
+        parse(CharStreams.fromString(sql), tables, null);
     }
 
     public void parseFromFile(String filePath, TreeMap<String, TableDefinition> tables) throws IOException {
-        parse(CharStreams.fromFileName(filePath), tables);
+        parse(CharStreams.fromFileName(filePath), tables, null);
+    }
+
+    public void parseFromString(String sql, TreeMap<String, TableDefinition> tables, TreeMap<String, TableData> tablesData) {
+        parse(CharStreams.fromString(sql), tables, tablesData);
+    }
+
+    public void parseFromFile(String filePath, TreeMap<String, TableDefinition> tables, TreeMap<String, TableData> tablesData) throws IOException {
+        parse(CharStreams.fromFileName(filePath), tables, tablesData);
     }
 
 
-    private void parse(CharStream s, TreeMap<String, TableDefinition> tables) {
+    private void parse(CharStream s, TreeMap<String, TableDefinition> tablesDefinition, TreeMap<String, TableData> tablesData) {
         MySqlLexer lexer = new MySqlLexer(s);
 
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         MySqlParser parser = new MySqlParser(tokens);
 
-        ConcreteParserListener listener = new ConcreteParserListener(tables, isAlter);
+        ConcreteParserListener listener = new ConcreteParserListener(tablesDefinition, tablesData);
+        listener.setAlterSchema(isAlter);
+        listener.setParseComment(parseComment);
 
         MySqlParser.RootContext tree = parser.root();
 
         ParseTreeWalker walker = new ParseTreeWalker();
         walker.walk(listener, tree);
 
-        if (parseComment) parseComment(tables);
-
-    }
-
-    private void parseComment(TreeMap<String, TableDefinition> tables) {
-        for (TableDefinition table : tables.values()) {
-            for (ColumnDefinition column : table.getColumnSequence()) {
-                CommentParser.parseColumnComment(column);
-            }
-            CommentParser.parseTableComment(table);
-        }
     }
 }

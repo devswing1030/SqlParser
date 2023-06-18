@@ -295,7 +295,7 @@ class ConcreteParserListenerTest {
         TableDefinition table = tables.get("test");
 
 
-        List<ColumnDefinition> columnSeq = table.getColumnSequence();
+        List<ColumnDefinition> columnSeq = table.getColumnSequenceRevision();
 
         assert(columnSeq.size() == 5);
         assert(columnSeq.get(0).getProperty("name").equals("name"));
@@ -343,7 +343,7 @@ class ConcreteParserListenerTest {
         String sql = "create table test (\n" +
                 "  id int(11) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码' ,\n" +
                 "  type int(2) NOT NULL COMMENT ' : 用户类型 : 1-普通用户,2-VIP用户, 3-SVIP',\n" +
-                "  name varchar(255) DEFAULT NULL\n" +
+                "  name varchar(255) DEFAULT NULL COMMENT '姓名: 用户姓名'\n" +
                 "); \n" +
                 "alter table test modify column type int(2) NOT NULL COMMENT '类型 : : 1-普通用户,2-VIP客户, 4-SuperVIP';\n" +
                 "alter table test modify column id int(12) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码 ';\n"
@@ -357,7 +357,7 @@ class ConcreteParserListenerTest {
         TableDefinition table = tables.get("test");
         assert(table != null);
 
-        List<ColumnDefinition> columns = table.getColumnSequence();
+        List<ColumnDefinition> columns = table.getColumnSequenceRevision();
         assert(columns.size() == 3);
 
 
@@ -373,17 +373,66 @@ class ConcreteParserListenerTest {
         assert(column.getProperty("description") == null);
         assert(column.getProperty("oldDescription").equals("用户类型"));
 
-        TreeMap enums = column.getEnums();
+        TreeMap<String, String> enums = column.getEnums();
         assert(enums.size() == 3);
         assert(enums.get("1").equals("普通用户"));
         assert(enums.get("2").equals("VIP客户"));
         assert(enums.get("4").equals("SuperVIP"));
 
-        TreeMap oldEnums = column.getOldEnums();
+        TreeMap<String, String> oldEnums = column.getOldEnums();
         assert(oldEnums.size() == 3);
         assert(oldEnums.get("1").equals("普通用户"));
         assert(oldEnums.get("2").equals("VIP用户"));
         assert(oldEnums.get("3").equals("SVIP"));
+
+        column = columns.get(2);
+        assert(column.getProperty("localName").equals("姓名"));
+        assert(column.getProperty("oldLocalName") == null);
+        assert(column.getProperty("description").equals("用户姓名"));
+        assert(column.getProperty("oldDescription") == null);
+
+    }
+
+    @Test
+    void loadData() {
+        String sql = "create table test (\n" +
+                "  id int(11) NOT NULL Primary Key COMMENT 'ID : 用户编码' ,\n" +
+                "  type int(2) NOT NULL COMMENT ' : 用户类型 : 1-普通用户,2-VIP用户, 3-SVIP',\n" +
+                "  name varchar(255) DEFAULT NULL\n" +
+                "); \n" +
+                "Insert into test (id, type, name) values (1, 1, \"te'st\");\n" +
+                "Insert into test (id, type, name) values (2, 2, 'tes\"t2');\n" +
+                "Insert into test (id, type, name) values (3, 3, 'test3');\n" +
+                "Insert into test (id, type, name) values (4, 2, 'test4');\n"
+                ;
+        TreeMap<String, TableDefinition> tables = new TreeMap<>();
+        TreeMap<String, TableData> tablesData = new TreeMap<>();
+        SqlParser parser = new SqlParser();
+        parser.setParseComment(true);
+        parser.parseFromString(sql, tables, tablesData);
+
+        assert(tablesData.size() == 1);
+        TableData tableData = tablesData.get("test");
+        assert(tableData != null);
+
+
+
+        assert(tableData.getRows().size() == 4);
+        assert(tableData.getRows().get("1").getField("id").equals("1"));
+        assert(tableData.getRows().get("1").getField("type").equals("1"));
+        assert(tableData.getRows().get("1").getField("name").equals("te'st"));
+
+        assert(tableData.getRows().get("2").getField("id").equals("2"));
+        assert(tableData.getRows().get("2").getField("type").equals("2"));
+        assert(tableData.getRows().get("2").getField("name").equals("tes\"t2"));
+
+        assert(tableData.getRows().get("3").getField("id").equals("3"));
+        assert(tableData.getRows().get("3").getField("type").equals("3"));
+        assert(tableData.getRows().get("3").getField("name").equals("test3"));
+
+        assert(tableData.getRows().get("4").getField("id").equals("4"));
+        assert(tableData.getRows().get("4").getField("type").equals("2"));
+        assert(tableData.getRows().get("4").getField("name").equals("test4"));
 
 
 

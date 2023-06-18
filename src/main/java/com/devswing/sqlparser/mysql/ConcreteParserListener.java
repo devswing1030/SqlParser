@@ -12,30 +12,37 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
     private static final Logger LOGGER = LogManager.getLogger(ConcreteParserListener.class);
 
-    private TreeMap<String, TableDefinition> tables;
-    private boolean isAlter = false;
+    private TreeMap<String, TableDefinition> tablesDefinition;
+
+    private TreeMap<String, TableData> tablesData;
+    private boolean isAlterSchema = false;
+    private boolean isParseComment = false;
     private TableDefinition currentTable;
     private ColumnDefinition currentColumn;
     private Hashtable<String, String> currentColumnProperties;
 
     private boolean isAlterTable = false;
 
-    public ConcreteParserListener(TreeMap<String, TableDefinition> tables) {
-        this.tables = tables;
+
+    public ConcreteParserListener(TreeMap<String, TableDefinition> tablesDefinition, TreeMap<String, TableData> tablesData) {
+        if (tablesDefinition == null) {
+            throw new IllegalArgumentException("tablesDefinition cannot be null");
+        }
+        if (tablesData == null) {
+            tablesData = new TreeMap<>();
+        }
+        this.tablesDefinition = tablesDefinition;
+        this.tablesData = tablesData;
     }
 
-    public ConcreteParserListener(TreeMap<String, TableDefinition> tables, boolean isAlter) {
-        this.tables = tables;
-        this.isAlter = isAlter;
+    public void setAlterSchema(boolean isAlterSchema) {
+        this.isAlterSchema = isAlterSchema;
     }
 
-    public Map<String, TableDefinition> getTables() {
-        return tables;
+    public void setParseComment(boolean isParseComment) {
+        this.isParseComment = isParseComment;
     }
 
-    public void setTables(TreeMap<String, TableDefinition> tables) {
-        this.tables = tables;
-    }
 
     public void enterColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
         LOGGER.debug("enterColumnCreateTable");
@@ -45,13 +52,16 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         isAlterTable = false;
         currentTable = new TableDefinition();
         currentTable.setProperty("name", (ctx.tableName().getText()));
-        if (isAlter) {
+        if (isAlterSchema) {
             currentTable.setProperty("new", "true");
         }
-        tables.put(currentTable.getProperty("name"), currentTable);
+        tablesDefinition.put(currentTable.getProperty("name"), currentTable);
     }
     public void exitColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
         LOGGER.debug("exitColumnCreateTable");
+
+        if (isParseComment)
+            CommentParser.parseTableComment(currentTable);
     }
 
     public void enterPrimaryKeyTableConstraint(MySqlParser.PrimaryKeyTableConstraintContext ctx) {
@@ -182,6 +192,9 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void exitColumnDeclaration(MySqlParser.ColumnDeclarationContext ctx) {
         LOGGER.debug("exitColumnDeclaration");
 
+        if (isParseComment)
+            CommentParser.parseColumnComment(currentColumn);
+
     }
 
     public void enterCommentColumnConstraint(MySqlParser.CommentColumnConstraintContext ctx) {
@@ -243,8 +256,8 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
         isAlterTable = true;
 
-        if (tables.containsKey((ctx.tableName().getText()))) {
-            currentTable = tables.get((ctx.tableName().getText()));
+        if (tablesDefinition.containsKey((ctx.tableName().getText()))) {
+            currentTable = tablesDefinition.get((ctx.tableName().getText()));
         } else {
             throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
         }
@@ -255,6 +268,9 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         LOGGER.debug("exitAlterTable");
 
         isAlterTable = false;
+
+        if (isParseComment)
+            CommentParser.parseTableComment(currentTable);
     }
 
     public void enterAlterByRename(MySqlParser.AlterByRenameContext ctx) {
@@ -269,8 +285,8 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
 
         ctx.tables().tableName().forEach(tableName -> {
-            if (tables.containsKey((tableName.getText()))) {
-                tables.get((tableName.getText())).setProperty("dropped", "true");
+            if (tablesDefinition.containsKey((tableName.getText()))) {
+                tablesDefinition.get((tableName.getText())).setProperty("dropped", "true");
             } else {
                 if (ctx.ifExists() == null)
                     throw new RuntimeException("Table " + (tableName.getText()) + " not found");
@@ -322,6 +338,9 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
                 column.setProperty(name, v);
             }
         }
+
+        if (isParseComment)
+            CommentParser.parseColumnComment(column);
     }
 
     private ColumnDefinition getChangedColumn(String name) {
@@ -440,7 +459,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterAlterByDropPrimaryKey(MySqlParser.AlterByDropPrimaryKeyContext ctx) {
         LOGGER.debug("enterAlterByDropPrimaryKey");
 
-        List<ColumnDefinition> columns = currentTable.getColumnSequence();
+        List<ColumnDefinition> columns = currentTable.getColumnSequenceRevision();
 
         for (ColumnDefinition column : columns) {
             if (column.getProperty("primaryKey") != null) {
@@ -454,13 +473,75 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterAlterByAddPrimaryKey(MySqlParser.AlterByAddPrimaryKeyContext ctx) {
         LOGGER.debug("enterAlterByAddPrimaryKey");
 
-        List<ColumnDefinition> columns = currentTable.getColumnSequence();
+        List<ColumnDefinition> columns = currentTable.getColumnSequenceRevision();
 
         ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
             ColumnDefinition column = currentTable.getColumn((indexColumnName.uid().getText()));
             column.setProperty("primaryKey", "true");
             column.setProperty("oldPrimaryKey", "false");
         });
+    }
+
+    public void enterInsertStatement(MySqlParser.InsertStatementContext ctx) {
+        LOGGER.debug("enterInsertStatement");
+
+        currentTable = tablesDefinition.get(ctx.tableName().getText());
+        if (currentTable == null){
+            throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
+        }
+
+        ArrayList<String> columns = new ArrayList<String>();
+        if (ctx.columns != null) {
+            ctx.columns.fullColumnName().forEach(fullColumnName -> {
+                columns.add(fullColumnName.getText());
+            });
+        }
+        else {
+            currentTable.getColumnSequence().forEach(column -> {
+                columns.add(column.getProperty("name"));
+            });
+        }
+
+        List<MySqlParser.ExpressionOrDefaultContext> values = ctx.insertStatementValue().expressionsWithDefaults().get(0).expressionOrDefault();
+
+        if (columns.size() != values.size()) {
+            throw new RuntimeException("Number of columns and values don't match");
+        }
+
+
+        RowData rowData = new RowData();
+        for (int i = 0; i < columns.size(); i++) {
+            rowData.addField(columns.get(i), removeQuotes(values.get(i).getText()));
+        }
+
+        TableData tableData = tablesData.get(currentTable.getProperty("name"));
+        if (tableData == null) {
+            tableData = new TableData(currentTable);
+            tablesData.put(currentTable.getProperty("name"), tableData);
+        }
+        tableData.addRow(rowData);;
+    }
+
+    private String removeQuotes(String text) {
+        if (text == null) {
+            return null;
+        }
+        if (!text.startsWith("'") && !text.startsWith("'''") && !text.startsWith("`") && !text.startsWith("\"")) {
+            return text;
+        }
+
+        text = text.substring(1, text.length() - 1);
+        text = text.replace("''", "'");
+        return text;
+    }
+
+    public void enterStringLiteral(MySqlParser.StringLiteralContext ctx) {
+        LOGGER.debug("enterStringLiteral");
+
+        String text = ctx.getText();
+        text = text.substring(1, text.length() - 1);
+        text = text.replace("''", "'");
+
     }
 
 

@@ -1,7 +1,6 @@
 package com.devswing.sqlparser;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 
@@ -30,7 +29,9 @@ public class TableDefinition {
     }
 
     public void setProperty(String key, String value) {
-
+        if (value == null) {
+            properties.remove(key);
+        }
         properties.put(key, value);
     }
 
@@ -67,7 +68,9 @@ public class TableDefinition {
         this.tagStatus = tagStatus;
     }
 
-
+    public String getName() {
+        return getProperty("name");
+    }
 
     public void addColumn(String name, ColumnDefinition column) {
 
@@ -159,9 +162,20 @@ public class TableDefinition {
         return columns;
     }
 
-    public List<ColumnDefinition> getColumnSequence() {
+    public List<ColumnDefinition> getColumnSequenceRevision() {
         return columnSequence;
     }
+
+    public List<ColumnDefinition> getColumnSequence() {
+        ArrayList<ColumnDefinition> columnSequence = new ArrayList<>();
+        for (ColumnDefinition column : this.columnSequence) {
+            if (column.getProperty("dropped") == null) {
+                columnSequence.add(column);
+            }
+        }
+        return columnSequence;
+    }
+
 
     public void addForeignKey(String name, ForeignKeyDefinition foreignKey) {
         foreignKeys.put(name, foreignKey);
@@ -178,5 +192,17 @@ public class TableDefinition {
     public void removeForeignKey(String name) {
         foreignKeys.remove(name);
     }
+
+    ArrayList<String> getPrimaryKeyColumns() {
+        ArrayList<String> primaryKeyColumns = new ArrayList<>();
+        for (ColumnDefinition column : columnSequence) {
+            if (column.getProperty("primaryKey") != null) {
+                if (column.getProperty("primaryKey").equals("true"))
+                    primaryKeyColumns.add(column.getProperty("name"));
+            }
+        }
+        return primaryKeyColumns;
+    }
+
 }
 

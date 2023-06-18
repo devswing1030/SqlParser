@@ -68,4 +68,8 @@ public class ColumnDefinition {
     public TreeMap<String, String> getEnumStatus() {
         return enumStatus;
     }
+
+    public String getName() {
+        return getProperty("name");
+    }
 }
