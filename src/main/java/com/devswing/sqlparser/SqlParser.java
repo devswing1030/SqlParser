@@ -12,24 +12,38 @@ import java.io.IOException;
 import java.util.TreeMap;
 
 public class SqlParser {
-    public static void parseFromString(String sql, TreeMap<String, TableDefinition> tables ) {
-        parseFromString(sql, tables, false);
+    private boolean isAlter = false;
+    private boolean parseComment = false;
+
+    public SqlParser() {
     }
 
-    public static void parseFromString(String sql, TreeMap<String, TableDefinition> tables, boolean isAlter) {
-        parse(CharStreams.fromString(sql), tables, isAlter);
+    public void setAlter(boolean alter) {
+        isAlter = alter;
     }
 
-    public static void parseFromFile(String filePath, TreeMap<String, TableDefinition> tables) throws IOException {
-        parseFromFile(filePath, tables, false);
+    public boolean isAlter() {
+        return isAlter;
     }
 
-    public static void parseFromFile(String filePath, TreeMap<String, TableDefinition> tables, boolean isAlter) throws IOException {
-        parse(CharStreams.fromFileName(filePath), tables, isAlter);
+    public void setParseComment(boolean parseComment) {
+        this.parseComment = parseComment;
+    }
+
+    public boolean isParseComment() {
+        return parseComment;
+    }
+
+    public void parseFromString(String sql, TreeMap<String, TableDefinition> tables) {
+        parse(CharStreams.fromString(sql), tables);
+    }
+
+    public void parseFromFile(String filePath, TreeMap<String, TableDefinition> tables) throws IOException {
+        parse(CharStreams.fromFileName(filePath), tables);
     }
 
 
-    private static void parse(CharStream s, TreeMap<String, TableDefinition> tables, boolean isAlter) {
+    private void parse(CharStream s, TreeMap<String, TableDefinition> tables) {
         MySqlLexer lexer = new MySqlLexer(s);
 
         CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -41,5 +55,17 @@ public class SqlParser {
 
         ParseTreeWalker walker = new ParseTreeWalker();
         walker.walk(listener, tree);
+
+        if (parseComment) parseComment(tables);
+
+    }
+
+    private void parseComment(TreeMap<String, TableDefinition> tables) {
+        for (TableDefinition table : tables.values()) {
+            for (ColumnDefinition column : table.getColumnSequence()) {
+                CommentParser.parseColumnComment(column);
+            }
+            CommentParser.parseTableComment(table);
+        }
     }
 }

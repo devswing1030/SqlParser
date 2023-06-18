@@ -8,6 +8,10 @@ import java.util.List;
 public class TableDefinition {
 
     private final Hashtable<String, String> properties = new Hashtable<>();
+
+    private ArrayList<String> tags = new ArrayList<>();
+
+    private Hashtable<String, String> tagStatus = new Hashtable<>();
     private final Hashtable<String, ColumnDefinition> columns = new Hashtable<>();
 
     private final ArrayList<ColumnDefinition> columnSequence = new ArrayList<>();
@@ -15,6 +19,8 @@ public class TableDefinition {
     private final Hashtable<String, IndexDefinition> indexs = new Hashtable<>();
 
     private final Hashtable<String, ForeignKeyDefinition> foreignKeys = new Hashtable<>();
+
+
 
     public TableDefinition() {
         setDefaultProperties();
@@ -39,6 +45,29 @@ public class TableDefinition {
     public Hashtable<String, String> getProperties() {
         return properties;
     }
+
+    public ArrayList<String> getTags() {
+        return tags;
+    }
+
+    public void addTag(String tag) {
+        tags.add(tag);
+    }
+
+    public void setTags(ArrayList<String> tags) {
+        this.tags = tags;
+    }
+
+
+    public Hashtable<String, String> getTagStatus() {
+        return tagStatus;
+    }
+
+    public void setTagStatus(Hashtable<String, String> tagStatus) {
+        this.tagStatus = tagStatus;
+    }
+
+
 
     public void addColumn(String name, ColumnDefinition column) {
 

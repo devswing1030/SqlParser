@@ -1,30 +1,18 @@
 package com.devswing.sqlparser.mysql;
 
 import com.devswing.sqlparser.*;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
 
 class ConcreteParserListenerTest {
-    private static ConcreteParserListener getConcreteParserListener(String sql) {
-        MySqlLexer lexer = new MySqlLexer(CharStreams.fromString(sql));
-
-        CommonTokenStream tokens = new CommonTokenStream(lexer);
-        MySqlParser parser = new MySqlParser(tokens);
-
+    private static TreeMap<String, TableDefinition>  getTables(String sql) {
         TreeMap<String, TableDefinition> tables = new TreeMap<>();
 
-        ConcreteParserListener listener = new ConcreteParserListener(tables);
+        SqlParser parser = new SqlParser();
+        parser.parseFromString(sql, tables);
 
-        MySqlParser.RootContext tree = parser.root();
-        System.out.println(tree.toStringTree(parser));
-
-        ParseTreeWalker walker = new ParseTreeWalker();
-        walker.walk(listener, tree);
-        return listener;
+        return tables;
     }
 
     @org.junit.jupiter.api.Test
@@ -42,9 +30,7 @@ class ConcreteParserListenerTest {
                 "  id int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY);"
                 ;
 
-        ConcreteParserListener listener = getConcreteParserListener(sql);
-
-        Map<String, TableDefinition> tables = listener.getTables();
+        Map<String, TableDefinition> tables = getTables(sql);
         assert(tables.size() == 2);
         TableDefinition table = tables.get("test");
         assert(table != null);
@@ -52,7 +38,7 @@ class ConcreteParserListenerTest {
         //assert(table.getProperty("engine").equals("InnoDB"));
         //assert(table.getProperty("charset").equals("utf8mb4"));
         //assert(table.getProperty("collate").equals("utf8mb4_unicode_ci"));
-        assert(table.getProperty("comment").equals("'test comment'"));
+        assert(table.getProperty("comment").equals("test comment"));
 
         Map<String, ColumnDefinition> columns = table.getColumns();
         assert(columns.size() == 3);
@@ -97,8 +83,7 @@ class ConcreteParserListenerTest {
 
                 ;
 
-        ConcreteParserListener listener = getConcreteParserListener(sql);
-        Map<String, TableDefinition> tables = listener.getTables();
+        Map<String, TableDefinition> tables = getTables(sql);
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
         assert(table != null);
@@ -135,8 +120,7 @@ class ConcreteParserListenerTest {
                 "Alter table test add index idx_comment (comment);"
                 ;
 
-        ConcreteParserListener listener = getConcreteParserListener(sql);
-        Map<String, TableDefinition> tables = listener.getTables();
+        Map<String, TableDefinition> tables = getTables(sql);
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
         assert(table != null);
@@ -222,8 +206,7 @@ class ConcreteParserListenerTest {
                 "alter table test RENAME TO `user`;\n" +
                 "alter table test comment 'test';\n"
                 ;
-        ConcreteParserListener listener = getConcreteParserListener(sql);
-        Map<String, TableDefinition> tables = listener.getTables();
+        Map<String, TableDefinition> tables = getTables(sql);
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
         assert(table != null);
@@ -239,16 +222,15 @@ class ConcreteParserListenerTest {
     @Test
     void ChangeTables_Alter_Column() {
         String sql = "CREATE TABLE test (\n" +
-                "  id int(11) NOT NULL AUTO_INCREMENT ,\n" +
+                "  id int(11) NOT NULL AUTO_INCREMENT COMMENT 'ID',\n" +
                 "  type int(2) NOT NULL,\n" +
                 "  name varchar(255) DEFAULT NULL,\n" +
                 "  comment varchar(255) DEFAULT NULL);\n" +
                 "alter table test drop column name;\n" +
                 "alter table test rename column `comment` to `description`;\n" +
-                "alter table test modify column id int(18) not null;\n"
+                "alter table test modify column id int(18) not null COMMENT 'User ID';\n"
                 ;
-        ConcreteParserListener listener = getConcreteParserListener(sql);
-        Map<String, TableDefinition> tables = listener.getTables();
+        Map<String, TableDefinition> tables = getTables(sql);
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
         assert(table != null);
@@ -273,6 +255,9 @@ class ConcreteParserListenerTest {
         assert(column.getProperty("oldNotNull")==null);
         assert(column.getProperty("autoIncrement").equals("false"));
         assert(column.getProperty("oldAutoIncrement").equals("true"));
+
+        assert(column.getProperty("comment").equals("User ID"));
+        assert(column.getProperty("oldComment").equals("ID"));
     }
 
     @Test
@@ -282,8 +267,7 @@ class ConcreteParserListenerTest {
                 "drop table test, user;\n" +
                 "drop table if exists user1;"
                 ;
-        ConcreteParserListener listener = getConcreteParserListener(sql);
-        Map<String, TableDefinition> tables = listener.getTables();
+        Map<String, TableDefinition> tables = getTables(sql);
         assert(tables.size() == 2);
         TableDefinition table = tables.get("test");
         assert(table != null);
@@ -305,10 +289,8 @@ class ConcreteParserListenerTest {
                 "alter table test add column course varchar(255) after id;\n" +
                 "alter table test add column description varchar(255) ;\n" ;
 
-        System.out.println(sql);
-        ConcreteParserListener listener = getConcreteParserListener(sql);
 
-        Map<String, TableDefinition> tables = listener.getTables();
+        Map<String, TableDefinition> tables = getTables(sql);
         assert(tables.size() == 1);
         TableDefinition table = tables.get("test");
 
@@ -324,6 +306,86 @@ class ConcreteParserListenerTest {
         assert(columnSeq.get(3).getProperty("name").equals("type"));
         assert(columnSeq.get(4).getProperty("name").equals("description"));
         assert(columnSeq.get(4).getProperty("added").equals("true"));
+
+    }
+
+    @Test
+    void ParseTableComment() {
+        String sql = "create table test (id int(12)) \n" +
+                "comment '测试表 : this is a test table : 应用数据 :  增量更新';\n" +
+                "alter table test comment '测试表a : this is a test table a : 元数据 :  增量更新';\n"
+                ;
+        TreeMap<String, TableDefinition> tables = new TreeMap<>();
+        SqlParser parser = new SqlParser();
+        parser.setParseComment(true);
+        parser.parseFromString(sql, tables);
+
+        assert(tables.size() == 1);
+        TableDefinition table = tables.get("test");
+        assert(table != null);
+
+        assert(table.getProperty("localName").equals("测试表a"));
+        assert(table.getProperty("oldLocalName").equals("测试表"));
+        assert(table.getProperty("description").equals("this is a test table a"));
+        assert(table.getProperty("oldDescription").equals("this is a test table"));
+        assert(table.getTags().get(0).equals("元数据"));
+        assert(table.getTags().get(1).equals("增量更新"));
+
+        Hashtable<String, String> tagStatus = table.getTagStatus();
+        assert(tagStatus.get("元数据").equals("added"));
+        assert(tagStatus.get("应用数据").equals("dropped"));
+        assert(tagStatus.get("增量更新").equals(""));
+
+    }
+
+    @Test
+    void parseColumnComment() {
+        String sql = "create table test (\n" +
+                "  id int(11) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码' ,\n" +
+                "  type int(2) NOT NULL COMMENT ' : 用户类型 : enumVal 1-普通用户,2-VIP用户, 3-SVIP',\n" +
+                "  name varchar(255) DEFAULT NULL\n" +
+                "); \n" +
+                "alter table test modify column type int(2) NOT NULL COMMENT '类型 : : enumVal 1-普通用户,2-VIP客户, 4-SuperVIP';\n" +
+                "alter table test modify column id int(12) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码 ';\n"
+                ;
+        TreeMap<String, TableDefinition> tables = new TreeMap<>();
+        SqlParser parser = new SqlParser();
+        parser.setParseComment(true);
+        parser.parseFromString(sql, tables);
+
+        assert(tables.size() == 1);
+        TableDefinition table = tables.get("test");
+        assert(table != null);
+
+        List<ColumnDefinition> columns = table.getColumnSequence();
+        assert(columns.size() == 3);
+
+
+        ColumnDefinition column = columns.get(0);
+        assert(column.getProperty("localName").equals("ID"));
+        assert(column.getProperty("oldLocalName") == null);
+        assert(column.getProperty("description").equals("用户编码"));
+        assert(column.getProperty("oldDescription") == null);
+
+        column = columns.get(1);
+        assert(column.getProperty("localName").equals("类型"));
+        assert(column.getProperty("oldLocalName") == null);
+        assert(column.getProperty("description") == null);
+        assert(column.getProperty("oldDescription").equals("用户类型"));
+
+        TreeMap enums = column.getEnums();
+        assert(enums.size() == 3);
+        assert(enums.get("1").equals("普通用户"));
+        assert(enums.get("2").equals("VIP客户"));
+        assert(enums.get("4").equals("SuperVIP"));
+
+        TreeMap oldEnums = column.getOldEnums();
+        assert(oldEnums.size() == 3);
+        assert(oldEnums.get("1").equals("普通用户"));
+        assert(oldEnums.get("2").equals("VIP用户"));
+        assert(oldEnums.get("3").equals("SVIP"));
+
+
 
     }
 }
