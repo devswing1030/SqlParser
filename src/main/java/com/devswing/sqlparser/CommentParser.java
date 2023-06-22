@@ -24,6 +24,11 @@ public class CommentParser {
         table.setTags(comment.getTags());
 
         if (table.getProperty("oldComment") == null) {
+            Hashtable<String, String> tagStatus = new Hashtable<>();
+            for (String tag : comment.getTags()) {
+                tagStatus.put(tag, "");
+            }
+            table.setTagStatus(tagStatus);
             return;
         }
 

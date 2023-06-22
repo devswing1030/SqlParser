@@ -313,14 +313,15 @@ class ConcreteParserListenerTest {
     void ParseTableComment() {
         String sql = "create table test (id int(12)) \n" +
                 "comment '测试表 : this is a test table : 应用数据 :  增量更新';\n" +
-                "alter table test comment '测试表a : this is a test table a : 元数据 :  增量更新';\n"
+                "alter table test comment '测试表a : this is a test table a : 元数据 :  增量更新';\n" +
+                "create table user(id int(11)) comment '用户表 : this is a test table : 应用数据 :  增量更新';\n"
                 ;
         TreeMap<String, TableDefinition> tables = new TreeMap<>();
         SqlParser parser = new SqlParser();
         parser.setParseComment(true);
         parser.parseFromString(sql, tables);
 
-        assert(tables.size() == 1);
+        assert(tables.size() == 2);
         TableDefinition table = tables.get("test");
         assert(table != null);
 
@@ -334,6 +335,20 @@ class ConcreteParserListenerTest {
         Hashtable<String, String> tagStatus = table.getTagStatus();
         assert(tagStatus.get("元数据").equals("added"));
         assert(tagStatus.get("应用数据").equals("dropped"));
+        assert(tagStatus.get("增量更新").equals(""));
+
+        table = tables.get("user");
+        assert(table != null);
+
+        assert(table.getProperty("localName").equals("用户表"));
+        assert(table.getProperty("oldLocalName") == null);
+        assert(table.getProperty("description").equals("this is a test table"));
+        assert(table.getProperty("oldDescription") == null);
+        assert(table.getTags().get(0).equals("应用数据"));
+        assert(table.getTags().get(1).equals("增量更新"));
+
+        tagStatus = table.getTagStatus();
+        assert(tagStatus.get("应用数据").equals(""));
         assert(tagStatus.get("增量更新").equals(""));
 
     }

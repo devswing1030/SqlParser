@@ -22,6 +22,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     private Hashtable<String, String> currentColumnProperties;
 
     private boolean isAlterTable = false;
+    private int rowsLoaded = 0;
 
 
     public ConcreteParserListener(TreeMap<String, TableDefinition> tablesDefinition, TreeMap<String, TableData> tablesData) {
@@ -520,19 +521,25 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
             tablesData.put(currentTable.getProperty("name"), tableData);
         }
         tableData.addRow(rowData);;
+
+        this.rowsLoaded++;
+
+        if (this.rowsLoaded % 1000 == 0) {
+            LOGGER.info("Loaded " + this.rowsLoaded + " rows");
+        }
     }
 
     private String removeQuotes(String text) {
         if (text == null) {
             return null;
         }
-        if (!text.startsWith("'") && !text.startsWith("'''") && !text.startsWith("`") && !text.startsWith("\"")) {
-            return text;
+        while(true) {
+            if (!text.startsWith("'") && !text.startsWith("'''") && !text.startsWith("`") && !text.startsWith("\"")) {
+                text = text.replace("''", "'");
+                return text;
+            }
+            text = text.substring(1, text.length() - 1);
         }
-
-        text = text.substring(1, text.length() - 1);
-        text = text.replace("''", "'");
-        return text;
     }
 
     public void enterStringLiteral(MySqlParser.StringLiteralContext ctx) {
