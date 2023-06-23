@@ -361,7 +361,8 @@ class ConcreteParserListenerTest {
                 "  name varchar(255) DEFAULT NULL COMMENT '姓名: 用户姓名'\n" +
                 "); \n" +
                 "alter table test modify column type int(2) NOT NULL COMMENT '类型 : : 1-普通用户,2-VIP客户, 4-SuperVIP';\n" +
-                "alter table test modify column id int(12) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码 ';\n"
+                "alter table test modify column id int(12) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码 ';\n" +
+                "alter table test add column country char(4) COMMENT '国家 : 国家代码 : CN-中国,EN-英国';\n"
                 ;
         TreeMap<String, TableDefinition> tables = new TreeMap<>();
         SqlParser parser = new SqlParser();
@@ -373,7 +374,7 @@ class ConcreteParserListenerTest {
         assert(table != null);
 
         List<ColumnDefinition> columns = table.getColumnSequenceRevision();
-        assert(columns.size() == 3);
+        assert(columns.size() == 4);
 
 
         ColumnDefinition column = columns.get(0);
@@ -405,6 +406,17 @@ class ConcreteParserListenerTest {
         assert(column.getProperty("oldLocalName") == null);
         assert(column.getProperty("description").equals("用户姓名"));
         assert(column.getProperty("oldDescription") == null);
+
+        column = columns.get(3);
+        assert(column.getProperty("localName").equals("国家"));
+        assert(column.getProperty("oldLocalName") == null);
+        assert(column.getProperty("description").equals("国家代码"));
+        assert(column.getProperty("oldDescription") == null);
+
+        enums = column.getEnums();
+        assert(enums.size() == 2);
+        assert(enums.get("CN").equals("中国"));
+        assert(enums.get("EN").equals("英国"));
 
     }
 

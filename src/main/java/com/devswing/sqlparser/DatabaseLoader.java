@@ -22,24 +22,19 @@ public class DatabaseLoader {
         return isParseComment;
     }
 
-    public void loadSchema(Database db, ArrayList<String> fileList) {
+    public void loadDatabase(Database db, ArrayList<String> fileList) {
         for (String path : fileList) {
             loadFromFile(path, db, false);
         }
     }
 
     public void loadAlterSchema(Database db, ArrayList<String> fileList) {
+        Database tmpDb = new Database(db.getName());
+        tmpDb.setTablesDefinition(db.getTablesDefinition());
         for (String path : fileList) {
-            loadFromFile(path, db, true);
+            loadFromFile(path, tmpDb, true);
         }
     }
-
-    public void loadData(Database db, ArrayList<String> fileList) {
-        for (String path : fileList) {
-            loadFromFile(path, db, false);
-        }
-    }
-
 
     private void loadFromFile(String path, Database db, boolean isAlter) {
         LOGGER.info("Loading file: " + path);

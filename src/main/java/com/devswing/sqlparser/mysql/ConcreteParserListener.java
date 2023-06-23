@@ -372,6 +372,15 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         currentColumn = column;
     }
 
+    public void exitAlterByAddColumn(MySqlParser.AlterByAddColumnContext ctx) {
+        LOGGER.debug("exitAlterByAddColumn");
+
+        if (isParseComment) {
+            System.out.println("parse comment");
+            CommentParser.parseColumnComment(currentColumn);
+        }
+    }
+
     public void enterAlterByAddForeignKey(MySqlParser.AlterByAddForeignKeyContext ctx) {
         LOGGER.debug("enterAlterByAddForeignKey");
 

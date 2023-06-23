@@ -5,7 +5,7 @@ import java.util.TreeMap;
 public class Database {
     private String name;
 
-    private final TreeMap<String, TableDefinition> tablesDefinition = new TreeMap<>();
+    private TreeMap<String, TableDefinition> tablesDefinition = new TreeMap<>();
     private final TreeMap<String, TableData> tablesData = new TreeMap<>();
 
 
@@ -23,5 +23,9 @@ public class Database {
 
     public TreeMap<String, TableData> getTablesData() {
         return tablesData;
+    }
+
+    public void setTablesDefinition(TreeMap<String, TableDefinition> tablesDefinition) {
+        this.tablesDefinition = tablesDefinition;
     }
 }
