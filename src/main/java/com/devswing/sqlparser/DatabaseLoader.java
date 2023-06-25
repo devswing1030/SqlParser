@@ -37,7 +37,7 @@ public class DatabaseLoader {
     }
 
     private void loadFromFile(String path, Database db, boolean isAlter) {
-        LOGGER.info("Loading file: " + path);
+        LOGGER.info("Begin loading file: " + path);
 
         SqlParser parser = new SqlParser();
         parser.setAlter(isAlter);
@@ -47,5 +47,7 @@ public class DatabaseLoader {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        LOGGER.info("End loading file: " + path);
     }
 }

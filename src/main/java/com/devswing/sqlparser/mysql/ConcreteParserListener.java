@@ -376,7 +376,6 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         LOGGER.debug("exitAlterByAddColumn");
 
         if (isParseComment) {
-            System.out.println("parse comment");
             CommentParser.parseColumnComment(currentColumn);
         }
     }
@@ -535,6 +534,25 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
         if (this.rowsLoaded % 1000 == 0) {
             LOGGER.info("Loaded " + this.rowsLoaded + " rows");
+        }
+    }
+
+    public void enterSingleUpdateStatement(MySqlParser.SingleUpdateStatementContext ctx) {
+        LOGGER.debug("enterUpdateStatement");
+
+        currentTable = tablesDefinition.get(ctx.tableName().getText());
+        if (currentTable == null){
+            throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
+        }
+
+    }
+
+    public void enterSingleDeleteStatement(MySqlParser.SingleDeleteStatementContext ctx) {
+        LOGGER.debug("enterDeleteStatement");
+
+        currentTable = tablesDefinition.get(ctx.tableName().getText());
+        if (currentTable == null){
+            throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
         }
     }
 
