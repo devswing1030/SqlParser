@@ -12,7 +12,19 @@ public class ForeignKeyDefinition {
 
     private final Hashtable<String, String> properties = new Hashtable<String, String>();
 
+    public String getOnDelete() {
+        if (properties.get("onDelete") == null) {
+            return "NO ACTION";
+        }
+        return properties.get("onDelete");
+    }
 
+    public String getOnUpdate() {
+        if (properties.get("onUpdate") == null) {
+            return "NO ACTION";
+        }
+        return properties.get("onUpdate");
+    }
 
     public void addColumn(String column) {
         columns.add(column);

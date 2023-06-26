@@ -72,8 +72,10 @@ public class CommentParser {
         column.setProperty("parseComment", null);
         ColumnComment comment = new ColumnComment();
         if (column.getProperty("comment") != null) {
-            if (!comment.parse(column.getProperty("comment")))
+            if (!comment.parse(column.getProperty("comment"))) {
+                column.setProperty("description", column.getProperty("comment"));
                 return;
+            }
         }
         column.setProperty("localName", comment.getLocalName());
         column.setProperty("description", comment.getDescription());

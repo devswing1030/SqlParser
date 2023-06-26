@@ -10,6 +10,9 @@ public class TableData {
 
     private TableDefinition tableDefinition;
 
+    public TableData() {
+    }
+
     public TableData(TableDefinition tableDefinition) {
         this.tableDefinition = tableDefinition;
     }

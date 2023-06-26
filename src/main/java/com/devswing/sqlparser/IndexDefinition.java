@@ -8,6 +8,13 @@ public class IndexDefinition {
 
     private final Hashtable<String, String> properties = new Hashtable<>();
 
+    public boolean isUnique() {
+        if (properties.get("unique") == null) {
+            return false;
+        }
+        return properties.get("unique").equals("true");
+    }
+
     public void addColumn(String column) {
         columns.add(column);
     }
