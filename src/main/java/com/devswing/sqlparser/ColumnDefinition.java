@@ -13,6 +13,14 @@ public class ColumnDefinition {
 
     private TreeMap<String, String> enumStatus = new TreeMap<>();
 
+    public String getLocalName() {
+        if (properties.get("localName") == null) {
+            return "";
+        }
+
+        return properties.get("localName");
+    }
+
     public String getType() {
         return properties.get("type");
     }

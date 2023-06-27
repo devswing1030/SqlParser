@@ -28,6 +28,20 @@ public class TableDefinition {
         this.setProperty("comment", "");
     }
 
+    public String getLocalName() {
+        if (getProperty("localName") == null) {
+            return "";
+        }
+        return getProperty("localName");
+    }
+
+    public String getDescription() {
+        if (getProperty("description") == null) {
+            return "";
+        }
+        return getProperty("description");
+    }
+
     public void setProperty(String key, String value) {
         if (value == null) {
             properties.remove(key);
