@@ -13,6 +13,10 @@ public class RowData {
         return fields.get(key);
     }
 
+    public void setField(String key, String value) {
+        fields.put(key, value);
+    }
+
     public Hashtable<String, String> getFields() {
         return fields;
     }
