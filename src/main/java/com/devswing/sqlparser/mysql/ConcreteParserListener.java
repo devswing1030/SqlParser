@@ -15,13 +15,9 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     private TreeMap<String, TableDefinition> tablesDefinition;
 
     private TreeMap<String, TableData> tablesData;
-    private boolean isAlterSchema = false;
     private boolean isParseComment = false;
     private TableDefinition currentTable;
     private ColumnDefinition currentColumn;
-    private Hashtable<String, String> currentColumnProperties;
-
-    private boolean isAlterTable = false;
     private int rowsLoaded = 0;
 
 
@@ -36,10 +32,6 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
         this.tablesData = tablesData;
     }
 
-    public void setAlterSchema(boolean isAlterSchema) {
-        this.isAlterSchema = isAlterSchema;
-    }
-
     public void setParseComment(boolean isParseComment) {
         this.isParseComment = isParseComment;
     }
@@ -50,12 +42,8 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
         LOGGER.info("Create table : " + ctx.tableName().getText());
 
-        isAlterTable = false;
         currentTable = new TableDefinition();
         currentTable.setProperty("name", (ctx.tableName().getText()));
-        if (isAlterSchema) {
-            currentTable.setProperty("new", "true");
-        }
         tablesDefinition.put(currentTable.getProperty("name"), currentTable);
     }
     public void exitColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
@@ -170,10 +158,6 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void exitTableOptionComment(MySqlParser.TableOptionCommentContext ctx) {
         LOGGER.debug("exitTableOptionComment");
 
-        if (isAlterTable) {
-            currentTable.setProperty("oldComment", currentTable.getProperty("comment"));
-        }
-
         String comment = ctx.STRING_LITERAL().getText();
         comment = comment.substring(1, comment.length() - 1);
 
@@ -195,7 +179,6 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
         if (isParseComment)
             CommentParser.parseColumnComment(currentColumn);
-
     }
 
     public void enterCommentColumnConstraint(MySqlParser.CommentColumnConstraintContext ctx) {
@@ -216,12 +199,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterPrimaryKeyColumnConstraint(MySqlParser.PrimaryKeyColumnConstraintContext ctx) {
         LOGGER.debug("enterPrimaryKeyColumnConstraint");
 
-        if (!isAlterTable) {
-            currentColumn.setProperty("primaryKey", "true");
-        }
-        else {
-            currentColumn.setProperty("oldPrimaryKey", "false");
-        }
+        currentColumn.setProperty("primaryKey", "true");
     }
 
     public void enterAutoIncrementColumnConstraint(MySqlParser.AutoIncrementColumnConstraintContext ctx) {
@@ -255,240 +233,80 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
         LOGGER.info("Alter table: " + ctx.tableName().getText() );
 
-        isAlterTable = true;
-
-        if (tablesDefinition.containsKey((ctx.tableName().getText()))) {
-            currentTable = tablesDefinition.get((ctx.tableName().getText()));
-        } else {
-            throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
-        }
-        currentTable.setProperty("altered", "true");
     }
 
     public void exitAlterTable(MySqlParser.AlterTableContext ctx) {
         LOGGER.debug("exitAlterTable");
 
-        isAlterTable = false;
-
-        if (isParseComment)
-            CommentParser.parseTableComment(currentTable);
     }
 
     public void enterAlterByRename(MySqlParser.AlterByRenameContext ctx) {
         LOGGER.debug("enterAlterByRename");
 
-        currentTable.setProperty("oldName", (currentTable.getProperty("name")));
-        currentTable.setProperty("name", (ctx.uid().getText()));
     }
 
     public void enterDropTable(MySqlParser.DropTableContext ctx) {
         LOGGER.debug("enterDropTable");
-
-
-        ctx.tables().tableName().forEach(tableName -> {
-            if (tablesDefinition.containsKey((tableName.getText()))) {
-                tablesDefinition.get((tableName.getText())).setProperty("dropped", "true");
-            } else {
-                if (ctx.ifExists() == null)
-                    throw new RuntimeException("Table " + (tableName.getText()) + " not found");
-            }
-        });
     }
 
     public void enterAlterByDropColumn(MySqlParser.AlterByDropColumnContext ctx)  {
         LOGGER.debug("enterDropColumn");
 
-        ColumnDefinition column = getChangedColumn((ctx.uid().getText()));
-        column.setProperty("dropped", "true");
     }
 
     public void enterAlterByRenameColumn(MySqlParser.AlterByRenameColumnContext ctx) {
         LOGGER.debug("enterAlterByRenameColumn");
 
-        if (Objects.equals((ctx.oldColumn.getText()), (ctx.newColumn.getText())))
-            return;
-
-        ColumnDefinition column = getChangedColumn((ctx.oldColumn.getText()));
-        column.setProperty("oldName", (ctx.oldColumn.getText()));
-        currentTable.renameColumn((ctx.oldColumn.getText()), (ctx.newColumn.getText()));
     }
 
     public void enterAlterByModifyColumn(MySqlParser.AlterByModifyColumnContext ctx) {
         LOGGER.debug("enterAlterByModifyColumn");
 
-        ColumnDefinition column = getChangedColumn((ctx.uid(0).getText()));
-
-        currentColumnProperties = new Hashtable<>();
-        currentColumnProperties.putAll(column.getProperties());
-        column.setDefaultProperties();
-        column.setProperty("type", ctx.columnDefinition().dataType().getText());
     }
 
     public void exitAlterByModifyColumn(MySqlParser.AlterByModifyColumnContext ctx) {
         LOGGER.debug("exitAlterByModifyColumn");
-
-        ColumnDefinition column = getChangedColumn((ctx.uid(0).getText()));
-        for (String key : currentColumnProperties.keySet()) {
-            String v = currentColumnProperties.get(key);
-            //change the key to oldKey, for example from "notNull" to "oldNotNull"
-            String name = "old" + key.substring(0, 1).toUpperCase() + key.substring(1);
-            if (currentColumn.getProperty(key) == null) {
-                column.setProperty(name, v);
-            }
-            else if (!Objects.equals(currentColumn.getProperty(key), v)) {
-                column.setProperty(name, v);
-            }
-        }
-
-        if (isParseComment)
-            CommentParser.parseColumnComment(column);
     }
 
-    private ColumnDefinition getChangedColumn(String name) {
-        ColumnDefinition column = currentTable.getColumn(name);
-        if (column == null){
-            throw new RuntimeException("Column " + name + " not found");
-        }
-        currentColumn = column;
-        return column;
-    }
 
     public void enterAlterByAddColumn(MySqlParser.AlterByAddColumnContext ctx) {
         LOGGER.debug("enterAlterByAddColumn");
 
-        ColumnDefinition column = new ColumnDefinition();
-        column.setProperty("name", (ctx.uid(0).getText()));
-        column.setProperty("type", ctx.columnDefinition().dataType().getText());
-        column.setDefaultProperties();
-        column.setProperty("added", "true");
-
-        if (ctx.FIRST() != null)
-            currentTable.addColumnToFirst((ctx.uid(0).getText()), column);
-        else if (ctx.AFTER() != null)
-            currentTable.addColumnAfter((ctx.uid(0).getText()), column, (ctx.uid(1).getText()));
-        else
-            currentTable.addColumn((ctx.uid(0).getText()), column);
-
-        currentColumn = column;
     }
 
     public void exitAlterByAddColumn(MySqlParser.AlterByAddColumnContext ctx) {
         LOGGER.debug("exitAlterByAddColumn");
 
-        if (isParseComment) {
-            CommentParser.parseColumnComment(currentColumn);
-        }
     }
 
     public void enterAlterByAddForeignKey(MySqlParser.AlterByAddForeignKeyContext ctx) {
         LOGGER.debug("enterAlterByAddForeignKey");
 
-        ForeignKeyDefinition foreignKey = new ForeignKeyDefinition();
-
-        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            foreignKey.addColumn(indexColumnName.uid().getText());
-        });
-
-        foreignKey.setReferencedTable((ctx.referenceDefinition().tableName().getText()));
-
-        ctx.referenceDefinition().indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            foreignKey.addReferencedColumn((indexColumnName.uid().getText()));
-        });
-
-        StringBuilder finalKeyName = new StringBuilder("fk_");
-        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            finalKeyName.append((indexColumnName.uid().getText()));
-        });
-        String keyName = finalKeyName.toString();
-
-        List<MySqlParser.UidContext> tmp = ctx.uid();
-
-        if (ctx.uid() != null && ctx.uid().size() > 0) {
-            keyName = (ctx.uid(0).getText());
-        }
-
-        foreignKey.setProperty("added", "true");
-
-        if (ctx.referenceDefinition().referenceAction() != null) {
-            if (ctx.referenceDefinition().referenceAction().onDelete != null) {
-                foreignKey.setProperty("onDelete", (ctx.referenceDefinition().referenceAction().onDelete.getText()));
-            }
-            if (ctx.referenceDefinition().referenceAction().onUpdate != null) {
-                foreignKey.setProperty("onUpdate", (ctx.referenceDefinition().referenceAction().onUpdate.getText()));
-            }
-        }
-
-        currentTable.addForeignKey(keyName, foreignKey);
     }
 
     public void enterAlterByDropForeignKey(MySqlParser.AlterByDropForeignKeyContext ctx) {
         LOGGER.debug("enterAlterByDropForeignKey");
 
-        ForeignKeyDefinition foreignKey = currentTable.getForeignKey((ctx.uid().getText()));
-        if (foreignKey == null){
-            throw new RuntimeException("Foreign key " + (ctx.uid().getText()) + " not found");
-        }
-        foreignKey.setProperty("dropped", "true");
     }
 
     public void enterAlterByDropIndex(MySqlParser.AlterByDropIndexContext ctx) {
         LOGGER.debug("enterAlterByDropIndex");
 
-        IndexDefinition index = currentTable.getIndex((ctx.uid().getText()));
-        if (index == null){
-            throw new RuntimeException("Index " + (ctx.uid().getText()) + " not found");
-        }
-        index.setProperty("dropped", "true");
     }
 
     public void enterAlterByAddIndex(MySqlParser.AlterByAddIndexContext ctx) {
         LOGGER.debug("enterAlterByAddIndex");
 
-        IndexDefinition index = new IndexDefinition();
-
-        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            index.addColumn(indexColumnName.uid().getText());
-        });
-
-        StringBuilder finalKeyName = new StringBuilder("idx_");
-        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            finalKeyName.append((indexColumnName.uid().getText()));
-        });
-        String keyName = finalKeyName.toString();
-
-        if (ctx.uid() != null) {
-            keyName = ctx.uid().getText();
-        }
-
-        index.setProperty("added", "true");
-
-        currentTable.addIndex(keyName, index);
     }
 
     public void enterAlterByDropPrimaryKey(MySqlParser.AlterByDropPrimaryKeyContext ctx) {
         LOGGER.debug("enterAlterByDropPrimaryKey");
-
-        List<ColumnDefinition> columns = currentTable.getColumnSequenceRevision();
-
-        for (ColumnDefinition column : columns) {
-            if (column.getProperty("primaryKey") != null) {
-                column.setProperty("primaryKey", "false");
-                column.setProperty("oldPrimaryKey", "true");
-            }
-        }
 
     }
 
     public void enterAlterByAddPrimaryKey(MySqlParser.AlterByAddPrimaryKeyContext ctx) {
         LOGGER.debug("enterAlterByAddPrimaryKey");
 
-        List<ColumnDefinition> columns = currentTable.getColumnSequenceRevision();
-
-        ctx.indexColumnNames().indexColumnName().forEach(indexColumnName -> {
-            ColumnDefinition column = currentTable.getColumn((indexColumnName.uid().getText()));
-            column.setProperty("primaryKey", "true");
-            column.setProperty("oldPrimaryKey", "false");
-        });
     }
 
     public void enterInsertStatement(MySqlParser.InsertStatementContext ctx) {
@@ -540,20 +358,11 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterSingleUpdateStatement(MySqlParser.SingleUpdateStatementContext ctx) {
         LOGGER.debug("enterUpdateStatement");
 
-        currentTable = tablesDefinition.get(ctx.tableName().getText());
-        if (currentTable == null){
-            throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
-        }
-
     }
 
     public void enterSingleDeleteStatement(MySqlParser.SingleDeleteStatementContext ctx) {
         LOGGER.debug("enterDeleteStatement");
 
-        currentTable = tablesDefinition.get(ctx.tableName().getText());
-        if (currentTable == null){
-            throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
-        }
     }
 
     private String removeQuotes(String text) {
@@ -568,26 +377,5 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
             text = text.substring(1, text.length() - 1);
         }
     }
-
-    public void enterStringLiteral(MySqlParser.StringLiteralContext ctx) {
-        LOGGER.debug("enterStringLiteral");
-
-        String text = ctx.getText();
-        text = text.substring(1, text.length() - 1);
-        text = text.replace("''", "'");
-
-    }
-
-
-
-
-
-
-
-
-
-
-
-
 
 }

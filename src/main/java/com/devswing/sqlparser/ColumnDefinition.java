@@ -9,10 +9,6 @@ public class ColumnDefinition {
 
     private TreeMap<String, String> enums = new TreeMap<>();
 
-    private TreeMap<String, String> oldEnums = new TreeMap<>();
-
-    private TreeMap<String, String> enumStatus = new TreeMap<>();
-
     public String getLocalName() {
         if (properties.get("localName") == null) {
             return "";
@@ -98,22 +94,6 @@ public class ColumnDefinition {
 
     public void setEnums(TreeMap<String, String> enums) {
         this.enums = enums;
-    }
-
-    public void setOldEnums(TreeMap<String, String> oldEnums) {
-        this.oldEnums = oldEnums;
-    }
-
-    public TreeMap<String, String> getOldEnums() {
-        return oldEnums;
-    }
-
-    public void setEnumStatus(TreeMap<String, String> enumStatus) {
-        this.enumStatus = enumStatus;
-    }
-
-    public TreeMap<String, String> getEnumStatus() {
-        return enumStatus;
     }
 
     public String getName() {

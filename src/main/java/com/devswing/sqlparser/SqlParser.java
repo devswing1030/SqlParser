@@ -59,7 +59,6 @@ public class SqlParser {
         MySqlParser parser = new MySqlParser(tokens);
 
         ConcreteParserListener listener = new ConcreteParserListener(tablesDefinition, tablesData);
-        listener.setAlterSchema(isAlter);
         listener.setParseComment(parseComment);
 
         MySqlParser.RootContext tree = parser.root();

@@ -10,7 +10,6 @@ public class TableDefinition {
 
     private ArrayList<String> tags = new ArrayList<>();
 
-    private Hashtable<String, String> tagStatus = new Hashtable<>();
     private final Hashtable<String, ColumnDefinition> columns = new Hashtable<>();
 
     private final ArrayList<ColumnDefinition> columnSequence = new ArrayList<>();
@@ -24,7 +23,7 @@ public class TableDefinition {
     public TableDefinition() {
         setDefaultProperties();
     }
-    public void setDefaultProperties() {
+    private void setDefaultProperties() {
         this.setProperty("comment", "");
     }
 
@@ -73,87 +72,13 @@ public class TableDefinition {
         this.tags = tags;
     }
 
-
-    public Hashtable<String, String> getTagStatus() {
-        return tagStatus;
-    }
-
-    public void setTagStatus(Hashtable<String, String> tagStatus) {
-        this.tagStatus = tagStatus;
-    }
-
     public String getName() {
         return getProperty("name");
     }
 
     public void addColumn(String name, ColumnDefinition column) {
-
         columns.put(name, column);
-
-        if (column.getProperty("position") != null) {
-            String position = column.getProperty("position");
-            if (position.equals("FIRST")) {
-                columnSequence.add(0, column);
-            } else  {
-                // if position not equal FIRST, then it is the after column name
-                int index = 0;
-                for (ColumnDefinition col : columnSequence) {
-                    if (col.getProperty("name").equals(position)) {
-                        columnSequence.add(index + 1, column);
-                        break;
-                    }
-                    index++;
-                }
-            }
-        } else {
-            columnSequence.add(column);
-        }
-
-    }
-
-    public void removeColumn(String name) {
-        columns.remove(name);
-        int index = 0;
-        for (ColumnDefinition col : columnSequence) {
-            if (col.getProperty("name").equals(name)) {
-                columnSequence.remove(index);
-                break;
-            }
-            index++;
-        }
-    }
-
-    public void renameColumn(String oldName, String newName) {
-        ColumnDefinition column = columns.get(oldName);
-        column.setProperty("name", newName);
-        columns.remove(oldName);
-        columns.put(newName, column);
-        int index = 0;
-        for (ColumnDefinition col : columnSequence) {
-            if (col.getProperty("name").equals(oldName)) {
-                columnSequence.remove(index);
-                columnSequence.add(index, column);
-                break;
-            }
-            index++;
-        }
-    }
-
-    public void addColumnToFirst(String name, ColumnDefinition column) {
-        columns.put(name, column);
-        columnSequence.add(0, column);
-    }
-
-    public void addColumnAfter(String name, ColumnDefinition column, String after) {
-        columns.put(name, column);
-        int index = 0;
-        for (ColumnDefinition col : columnSequence) {
-            if (col.getProperty("name").equals(after)) {
-                columnSequence.add(index + 1, column);
-                break;
-            }
-            index++;
-        }
+        columnSequence.add(column);
     }
 
     public void addIndex(String name, IndexDefinition key) {
@@ -201,10 +126,6 @@ public class TableDefinition {
 
     public Hashtable<String, ForeignKeyDefinition> getForeignKeys() {
         return foreignKeys;
-    }
-
-    public void removeForeignKey(String name) {
-        foreignKeys.remove(name);
     }
 
     ArrayList<String> getPrimaryKeyColumns() {

@@ -78,9 +78,7 @@ class ConcreteParserListenerTest {
                 "  comment varchar(255) DEFAULT NULL,\n" +
                 "\n" +
                 "PRIMARY KEY (id, type)\n" +
-                ");\n" +
-                "alter table test drop primary key;\n"
-
+                ");\n"
                 ;
 
         Map<String, TableDefinition> tables = getTables(sql);
@@ -91,12 +89,10 @@ class ConcreteParserListenerTest {
         assert(columns.size() == 4);
         ColumnDefinition column = columns.get("id");
         assert(column != null);
-        assert(column.getProperty("primaryKey").equals("false"));
-        assert(column.getProperty("oldPrimaryKey").equals("true"));
+        assert(column.getProperty("primaryKey").equals("true"));
         column = columns.get("type");
         assert(column != null);
-        assert(column.getProperty("primaryKey").equals("false"));
-        assert(column.getProperty("oldPrimaryKey").equals("true"));
+        assert(column.getProperty("primaryKey").equals("true"));
     }
 
     @Test
@@ -113,11 +109,7 @@ class ConcreteParserListenerTest {
                 "UNIQUE KEY key2 (name)," +
                 "CONSTRAINT  FOREIGN KEY (id, type) REFERENCES Type (id, type) ON DELETE CASCADE,\n" +
                 "CONSTRAINT FK_key1 FOREIGN KEY (id) REFERENCES ID (id)\n" +
-                ");\n" +
-                "Alter table test drop foreign key FK_key1;\n" +
-                "Alter table test add foreign key FK_key2 (id) REFERENCES ID (id);\n" +
-                "Alter table test drop index key1;\n" +
-                "Alter table test add index idx_comment (comment);"
+                ");\n"
                 ;
 
         Map<String, TableDefinition> tables = getTables(sql);
@@ -127,7 +119,7 @@ class ConcreteParserListenerTest {
 
         // check keys
         Hashtable<String, IndexDefinition> keys = table.getIndexs();
-        assert(keys.size() == 5);
+        assert(keys.size() == 4);
 
         IndexDefinition key = keys.get("key1");
         assert(key != null);
@@ -136,7 +128,6 @@ class ConcreteParserListenerTest {
         assert(columns.size() == 2);
         assert(columns.get(0).equals("id"));
         assert(columns.get(1).equals("type"));
-        assert(key.getProperty("dropped").equals("true"));
 
         key = keys.get("idx_type");
         assert(key != null);
@@ -159,16 +150,11 @@ class ConcreteParserListenerTest {
         assert(columns.size() == 1);
         assert(columns.get(0).equals("person_id"));
 
-        key = keys.get("idx_comment");
-        assert(key != null);
-        assert(key.getProperty("unique")==null);
-        columns = key.getColumns();
-        assert(columns.size() == 1);
-        assert(columns.get(0).equals("comment"));
+
 
         // check foreign keys
         Hashtable<String, ForeignKeyDefinition> foreignKeys = table.getForeignKeys();
-        assert(foreignKeys.size() == 3);
+        assert(foreignKeys.size() == 2);
 
         ForeignKeyDefinition foreignKey = foreignKeys.get("fk_idtype");
         assert(foreignKey != null);
@@ -188,132 +174,14 @@ class ConcreteParserListenerTest {
         assert(foreignKey.getReferencedColumns().get(0).equals("id"));
         assert(foreignKey.getColumns().size() == 1);
         assert(foreignKey.getColumns().get(0).equals("id"));
-        assert(foreignKey.getProperty("dropped").equals("true"));
-
-        foreignKey = foreignKeys.get("FK_key2");
-        assert(foreignKey != null);
-        assert(foreignKey.getProperty("added").equals("true"));
-
-
-
 
     }
 
-
-    @Test
-    void ChangedTables() {
-        String sql = "create table test (id int(2));\n" +
-                "alter table test RENAME TO `user`;\n" +
-                "alter table test comment 'test';\n"
-                ;
-        Map<String, TableDefinition> tables = getTables(sql);
-        assert(tables.size() == 1);
-        TableDefinition table = tables.get("test");
-        assert(table != null);
-        assert(table.getProperty("name").equals("user"));
-        assert(table.getProperty("oldName").equals("test"));
-
-        assert(table.getProperty("altered").equals("true"));
-
-        assert(table.getProperty("comment").equals("test"));
-        assert(table.getProperty("oldComment").equals(""));
-    }
-
-    @Test
-    void ChangeTables_Alter_Column() {
-        String sql = "CREATE TABLE test (\n" +
-                "  id int(11) NOT NULL AUTO_INCREMENT COMMENT 'ID',\n" +
-                "  type int(2) NOT NULL,\n" +
-                "  name varchar(255) DEFAULT NULL,\n" +
-                "  comment varchar(255) DEFAULT NULL);\n" +
-                "alter table test drop column name;\n" +
-                "alter table test rename column `comment` to `description`;\n" +
-                "alter table test modify column id int(18) not null COMMENT 'User ID';\n"
-                ;
-        Map<String, TableDefinition> tables = getTables(sql);
-        assert(tables.size() == 1);
-        TableDefinition table = tables.get("test");
-        assert(table != null);
-
-        Hashtable<String, ColumnDefinition> columns = table.getColumns();
-        assert(columns.size() == 4);
-
-        ColumnDefinition column = columns.get("name");
-        assert(column != null);
-        assert(column.getProperty("dropped").equals("true"));
-
-        column = columns.get("description");
-        assert(column != null);
-        assert(column.getProperty("name").equals("description"));
-        assert(column.getProperty("oldName").equals("comment"));
-
-        column = columns.get("id");
-        assert(column != null);
-        assert(column.getProperty("type").equals("int(18)"));
-        assert(column.getProperty("oldType").equals("int(11)"));
-        assert(column.getProperty("notNull").equals("true"));
-        assert(column.getProperty("oldNotNull")==null);
-        assert(column.getProperty("autoIncrement").equals("false"));
-        assert(column.getProperty("oldAutoIncrement").equals("true"));
-
-        assert(column.getProperty("comment").equals("User ID"));
-        assert(column.getProperty("oldComment").equals("ID"));
-    }
-
-    @Test
-    void DroppedTables() {
-        String sql = "create table test (id int(11));\n" +
-                "create table user (id int(11));\n" +
-                "drop table test, user;\n" +
-                "drop table if exists user1;"
-                ;
-        Map<String, TableDefinition> tables = getTables(sql);
-        assert(tables.size() == 2);
-        TableDefinition table = tables.get("test");
-        assert(table != null);
-        assert(table.getProperty("dropped").equals("true"));
-
-        table = tables.get("user");
-        assert(table != null);
-        assert(table.getProperty("dropped").equals("true"));
-
-    }
-
-    @Test
-    void AddColumn() {
-        String sql = "create table test (\n" +
-                "  id int(11) NOT NULL AUTO_INCREMENT ,\n" +
-                "  type int(2) NOT NULL\n" +
-                ");\n" +
-                "alter table test add column name varchar(255) first;\n" +
-                "alter table test add column course varchar(255) after id;\n" +
-                "alter table test add column description varchar(255) ;\n" ;
-
-
-        Map<String, TableDefinition> tables = getTables(sql);
-        assert(tables.size() == 1);
-        TableDefinition table = tables.get("test");
-
-
-        List<ColumnDefinition> columnSeq = table.getColumnSequenceRevision();
-
-        assert(columnSeq.size() == 5);
-        assert(columnSeq.get(0).getProperty("name").equals("name"));
-        assert(columnSeq.get(0).getProperty("added").equals("true"));
-        assert(columnSeq.get(1).getProperty("name").equals("id"));
-        assert(columnSeq.get(2).getProperty("name").equals("course"));
-        assert(columnSeq.get(2).getProperty("added").equals("true"));
-        assert(columnSeq.get(3).getProperty("name").equals("type"));
-        assert(columnSeq.get(4).getProperty("name").equals("description"));
-        assert(columnSeq.get(4).getProperty("added").equals("true"));
-
-    }
 
     @Test
     void ParseTableComment() {
         String sql = "create table test (id int(12)) \n" +
                 "comment '测试表 : this is a test table : 应用数据 :  增量更新';\n" +
-                "alter table test comment '测试表a : this is a test table a : 元数据 :  增量更新';\n" +
                 "create table user(id int(11)) comment '用户表 : this is a test table : 应用数据 :  增量更新';\n"
                 ;
         TreeMap<String, TableDefinition> tables = new TreeMap<>();
@@ -325,32 +193,18 @@ class ConcreteParserListenerTest {
         TableDefinition table = tables.get("test");
         assert(table != null);
 
-        assert(table.getProperty("localName").equals("测试表a"));
-        assert(table.getProperty("oldLocalName").equals("测试表"));
-        assert(table.getProperty("description").equals("this is a test table a"));
-        assert(table.getProperty("oldDescription").equals("this is a test table"));
-        assert(table.getTags().get(0).equals("元数据"));
+        assert(table.getProperty("localName").equals("测试表"));
+        assert(table.getProperty("description").equals("this is a test table"));
+        assert(table.getTags().get(0).equals("应用数据"));
         assert(table.getTags().get(1).equals("增量更新"));
-
-        Hashtable<String, String> tagStatus = table.getTagStatus();
-        assert(tagStatus.get("元数据").equals("added"));
-        assert(tagStatus.get("应用数据").equals("dropped"));
-        assert(tagStatus.get("增量更新").equals(""));
 
         table = tables.get("user");
         assert(table != null);
 
         assert(table.getProperty("localName").equals("用户表"));
-        assert(table.getProperty("oldLocalName") == null);
         assert(table.getProperty("description").equals("this is a test table"));
-        assert(table.getProperty("oldDescription") == null);
         assert(table.getTags().get(0).equals("应用数据"));
         assert(table.getTags().get(1).equals("增量更新"));
-
-        tagStatus = table.getTagStatus();
-        assert(tagStatus.get("应用数据").equals(""));
-        assert(tagStatus.get("增量更新").equals(""));
-
     }
 
     @Test
@@ -359,10 +213,7 @@ class ConcreteParserListenerTest {
                 "  id int(11) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码' ,\n" +
                 "  type int(2) NOT NULL COMMENT ' : 用户类型 : 1-普通用户,2-VIP用户, 3-SVIP',\n" +
                 "  name varchar(255) DEFAULT NULL COMMENT '姓名: 用户姓名'\n" +
-                "); \n" +
-                "alter table test modify column type int(2) NOT NULL COMMENT '类型 : : 1-普通用户,2-VIP客户, 4-SuperVIP';\n" +
-                "alter table test modify column id int(12) NOT NULL AUTO_INCREMENT COMMENT 'ID : 用户编码 ';\n" +
-                "alter table test add column country char(4) COMMENT '国家 : 国家代码 : CN-中国,EN-英国';\n"
+                "); \n"
                 ;
         TreeMap<String, TableDefinition> tables = new TreeMap<>();
         SqlParser parser = new SqlParser();
@@ -374,50 +225,25 @@ class ConcreteParserListenerTest {
         assert(table != null);
 
         List<ColumnDefinition> columns = table.getColumnSequenceRevision();
-        assert(columns.size() == 4);
+        assert(columns.size() == 3);
 
 
         ColumnDefinition column = columns.get(0);
         assert(column.getProperty("localName").equals("ID"));
-        assert(column.getProperty("oldLocalName") == null);
         assert(column.getProperty("description").equals("用户编码"));
-        assert(column.getProperty("oldDescription") == null);
 
         column = columns.get(1);
-        assert(column.getProperty("localName").equals("类型"));
-        assert(column.getProperty("oldLocalName") == null);
-        assert(column.getProperty("description") == null);
-        assert(column.getProperty("oldDescription").equals("用户类型"));
-
+        assert(column.getProperty("localName")==null);
+        assert(column.getProperty("description").equals("用户类型"));
         TreeMap<String, String> enums = column.getEnums();
         assert(enums.size() == 3);
         assert(enums.get("1").equals("普通用户"));
-        assert(enums.get("2").equals("VIP客户"));
-        assert(enums.get("4").equals("SuperVIP"));
-
-        TreeMap<String, String> oldEnums = column.getOldEnums();
-        assert(oldEnums.size() == 3);
-        assert(oldEnums.get("1").equals("普通用户"));
-        assert(oldEnums.get("2").equals("VIP用户"));
-        assert(oldEnums.get("3").equals("SVIP"));
+        assert(enums.get("2").equals("VIP用户"));
+        assert(enums.get("3").equals("SVIP"));
 
         column = columns.get(2);
         assert(column.getProperty("localName").equals("姓名"));
-        assert(column.getProperty("oldLocalName") == null);
         assert(column.getProperty("description").equals("用户姓名"));
-        assert(column.getProperty("oldDescription") == null);
-
-        column = columns.get(3);
-        assert(column.getProperty("localName").equals("国家"));
-        assert(column.getProperty("oldLocalName") == null);
-        assert(column.getProperty("description").equals("国家代码"));
-        assert(column.getProperty("oldDescription") == null);
-
-        enums = column.getEnums();
-        assert(enums.size() == 2);
-        assert(enums.get("CN").equals("中国"));
-        assert(enums.get("EN").equals("英国"));
-
     }
 
     @Test
