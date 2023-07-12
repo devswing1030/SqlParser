@@ -45,8 +45,6 @@ public class TableComment {
                 addTag(parts[i].trim());
             }
         }
-
-
     }
 
 }
