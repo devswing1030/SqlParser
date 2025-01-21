@@ -1,6 +1,6 @@
 # SqlParser
 
-This is a java library for parsing sql.
+This is a java library for parsing sql. It can parse the sql into database, tables, columns, rows, etc. It can be used to analyze the sql and get the database structure and data.
 
 ## Quick Start
 
