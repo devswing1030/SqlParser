@@ -7,7 +7,10 @@ public class Database {
     private String name;
 
     private TreeMap<String, TableDefinition> tablesDefinition = new TreeMap<>();
+
     private final TreeMap<String, TableData> tablesData = new TreeMap<>();
+
+    private final TreeMap<String, String> procedures = new TreeMap<>();
 
     private final Hashtable<String, String> properties = new Hashtable<>();
 
@@ -44,8 +47,28 @@ public class Database {
         this.tablesData.put(tableName, tableData);
     }
 
+    public void setTablesData(TreeMap<String, TableData> tablesData) {
+        this.tablesData.putAll(tablesData);
+    }
+
     public TableData getTableData(String tableName) {
         return this.tablesData.get(tableName);
+    }
+
+    public void setProcedures(TreeMap<String, String> procedures) {
+        this.procedures.putAll(procedures);
+    }
+
+    public void setProcedure(String name, String procedure) {
+        this.procedures.put(name, procedure);
+    }
+
+    public String getProcedure(String name) {
+        return this.procedures.get(name);
+    }
+
+    public TreeMap<String, String> getProcedures() {
+        return this.procedures;
     }
 
     public void setProperty(String key, String value) {

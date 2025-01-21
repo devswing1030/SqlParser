@@ -18,6 +18,8 @@ public class TableDefinition {
 
     private final Hashtable<String, ForeignKeyDefinition> foreignKeys = new Hashtable<>();
 
+    private String createSql;
+
 
 
     public TableDefinition() {
@@ -25,6 +27,14 @@ public class TableDefinition {
     }
     private void setDefaultProperties() {
         this.setProperty("comment", "");
+    }
+
+    public void setCreateSql(String createSql) {
+        this.createSql = createSql;
+    }
+
+    public String getCreateSql() {
+        return createSql;
     }
 
     public String getLocalName() {
@@ -128,7 +138,7 @@ public class TableDefinition {
         return foreignKeys;
     }
 
-    ArrayList<String> getPrimaryKeyColumns() {
+    public ArrayList<String> getPrimaryKeyColumns() {
         ArrayList<String> primaryKeyColumns = new ArrayList<>();
         for (ColumnDefinition column : columnSequence) {
             if (column.getProperty("primaryKey") != null) {

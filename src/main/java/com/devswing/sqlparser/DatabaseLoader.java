@@ -22,32 +22,62 @@ public class DatabaseLoader {
         return isParseComment;
     }
 
-    public void loadDatabase(Database db, ArrayList<String> fileList) {
+    public boolean loadDatabase(Database db, ArrayList<String> fileList) {
+        boolean success = true;
         for (String path : fileList) {
-            loadFromFile(path, db, false);
+            if (!loadFromFile(path, db, false)) {
+                success = false;
+            }
         }
+        return success;
     }
 
-    public void loadAlterSchema(Database db, ArrayList<String> fileList) {
+    public boolean loadDatabase(Database db, String sql) {
+        return loadFromString(sql, db, false);
+    }
+
+    public boolean loadAlterSchema(Database db, ArrayList<String> fileList) {
+        boolean success = true;
         Database tmpDb = new Database(db.getName());
         tmpDb.setTablesDefinition(db.getTablesDefinition());
         for (String path : fileList) {
-            loadFromFile(path, tmpDb, true);
+            if (!loadFromFile(path, tmpDb, true)) {
+                success = false;
+            }
         }
+        return success;
     }
 
-    private void loadFromFile(String path, Database db, boolean isAlter) {
-        LOGGER.info("Begin loading file: " + path);
+    private boolean loadFromFile(String path, Database db, boolean isAlter) {
+        LOGGER.debug("Begin loading file: " + path);
+
+        boolean success = true;
+
+        try {
+            String sql = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(path)));
+            success = loadFromString(sql, db, isAlter);
+            LOGGER.debug("End loading file: " + path);
+        } catch (Exception e) {
+            success = false;
+            LOGGER.error("Loading " + path + " failed:" + e.getMessage());
+        }
+
+        return success;
+    }
+
+    private boolean loadFromString(String sql, Database db, boolean isAlter) {
+
+        boolean success = true;
 
         SqlParser parser = new SqlParser();
         parser.setAlter(isAlter);
         parser.setParseComment(isParseComment);
         try {
-            parser.parseFromFile(path, db.getTablesDefinition(), db.getTablesData());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            success = parser.parseFromString(sql, db);
+        } catch (Exception e) {
+            success = false;
         }
 
-        LOGGER.info("End loading file: " + path);
+        return success;
     }
 }

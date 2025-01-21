@@ -39,6 +39,7 @@ public class TableData {
             String key = "";
             for (String primaryKey : primaryKeys) {
                 key += value.getField(primaryKey);
+                key += "_";
             }
             rows.put(key, value);
         }
@@ -47,6 +48,7 @@ public class TableData {
             String key = "";
             for (ColumnDefinition columns : tableDefinition.getColumnSequenceRevision()){
                 key += value.getField(columns.getProperty("name"));
+                key += "_";
             }
             //calculate md5
             MessageDigest md = null;
@@ -64,6 +66,10 @@ public class TableData {
 
             rows.put(md5Hash, value);
         }
+    }
+
+    public void merge(TableData tableData) {
+        rows.putAll(tableData.getRows());
     }
 
 }

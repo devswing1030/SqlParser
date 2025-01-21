@@ -4,6 +4,11 @@ package com.devswing.sqlparser.mysql;
 import com.devswing.sqlparser.*;
 
 import java.util.*;
+
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.misc.Interval;
+import org.antlr.v4.runtime.tree.ErrorNode;
+import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -11,6 +16,8 @@ import org.apache.logging.log4j.Logger;
 public class ConcreteParserListener extends MySqlParserBaseListener {
 
     private static final Logger LOGGER = LogManager.getLogger(ConcreteParserListener.class);
+
+    private Database db;
 
     private TreeMap<String, TableDefinition> tablesDefinition;
 
@@ -20,30 +27,46 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     private ColumnDefinition currentColumn;
     private int rowsLoaded = 0;
 
+    private StringBuilder errorMessages = new StringBuilder();
 
-    public ConcreteParserListener(TreeMap<String, TableDefinition> tablesDefinition, TreeMap<String, TableData> tablesData) {
-        if (tablesDefinition == null) {
-            throw new IllegalArgumentException("tablesDefinition cannot be null");
-        }
-        if (tablesData == null) {
-            tablesData = new TreeMap<>();
-        }
-        this.tablesDefinition = tablesDefinition;
-        this.tablesData = tablesData;
+    private boolean hasError = false;
+    private int errLine = -1;
+    private String parsedFile = null;
+
+
+    public ConcreteParserListener(Database db) {
+        this.db = db;
+        this.tablesDefinition = db.getTablesDefinition();
+        this.tablesData = db.getTablesData();
     }
 
     public void setParseComment(boolean isParseComment) {
         this.isParseComment = isParseComment;
     }
 
+    public void setParsedFile(String parsedFile) {
+        this.parsedFile = parsedFile;
+    }
+
+    public boolean hasError() {
+        return hasError;
+    }
+
+    public String errorMessage() {
+        return this.errorMessages.toString();
+    }
+
 
     public void enterColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
         LOGGER.debug("enterColumnCreateTable");
 
-        LOGGER.info("Create table : " + ctx.tableName().getText());
+        LOGGER.debug("Parse table schema: " + ctx.tableName().getText());
 
         currentTable = new TableDefinition();
         currentTable.setProperty("name", (ctx.tableName().getText()));
+        CharStream in = ctx.getStart().getInputStream();
+        String createSql = in.getText(Interval.of(ctx.getStart().getStartIndex(), ctx.getStop().getStopIndex()+1));
+        currentTable.setCreateSql(createSql);
         tablesDefinition.put(currentTable.getProperty("name"), currentTable);
     }
     public void exitColumnCreateTable(MySqlParser.ColumnCreateTableContext ctx) {
@@ -231,7 +254,7 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterAlterTable(MySqlParser.AlterTableContext ctx) {
         LOGGER.debug("enterAlterTable");
 
-        LOGGER.info("Alter table: " + ctx.tableName().getText() );
+        LOGGER.debug("Alter table: " + ctx.tableName().getText() );
 
     }
 
@@ -312,6 +335,10 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
     public void enterInsertStatement(MySqlParser.InsertStatementContext ctx) {
         LOGGER.debug("enterInsertStatement");
 
+        CharStream in = ctx.getStart().getInputStream();
+        String insertSql = in.getText(Interval.of(ctx.getStart().getStartIndex(), ctx.getStop().getStopIndex()+1));
+        int line = ctx.getStart().getLine();
+
         currentTable = tablesDefinition.get(ctx.tableName().getText());
         if (currentTable == null){
             throw new RuntimeException("Table " + (ctx.tableName().getText()) + " not found");
@@ -319,9 +346,31 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
         ArrayList<String> columns = new ArrayList<String>();
         if (ctx.columns != null) {
-            ctx.columns.fullColumnName().forEach(fullColumnName -> {
-                columns.add(fullColumnName.getText());
-            });
+            if (ctx.columns.fullColumnName().size() != currentTable.getColumns().size()) {
+                hasError = true;
+                if (this.parsedFile !=null) {
+                    LOGGER.error("Number of columns dose not equal to table definition in file " + parsedFile + " in line " + line + ": " + insertSql);
+
+                }
+                else {
+                    LOGGER.error("Number of columns dose not equal to table definition in line " + line + ": " + insertSql);
+                }
+                return;
+            }
+            for (int i = 0; i < ctx.columns.fullColumnName().size(); i++) {
+                if (currentTable.getColumn(ctx.columns.fullColumnName(i).getText()) == null) {
+                    hasError = true;
+                    if (this.parsedFile != null)
+                    {
+                        LOGGER.error("Column " + ctx.columns.fullColumnName(i).getText() + " not found in table " + currentTable.getProperty("name") + " in file " + parsedFile + " in line " + line + ": " + insertSql);
+                    }
+                    else {
+                        LOGGER.error("Column " + ctx.columns.fullColumnName(i).getText() + " not found in table " + currentTable.getProperty("name") + " in line " + line + ": " + insertSql);
+                    }
+                    return;
+                }
+                columns.add(ctx.columns.fullColumnName(i).getText());
+            }
         }
         else {
             currentTable.getColumnSequence().forEach(column -> {
@@ -329,29 +378,40 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
             });
         }
 
-        List<MySqlParser.ExpressionOrDefaultContext> values = ctx.insertStatementValue().expressionsWithDefaults().get(0).expressionOrDefault();
-
-        if (columns.size() != values.size()) {
-            throw new RuntimeException("Number of columns and values don't match");
-        }
-
-
-        RowData rowData = new RowData();
-        for (int i = 0; i < columns.size(); i++) {
-            rowData.addField(columns.get(i), removeQuotes(values.get(i).getText()));
-        }
-
         TableData tableData = tablesData.get(currentTable.getProperty("name"));
         if (tableData == null) {
             tableData = new TableData(currentTable);
             tablesData.put(currentTable.getProperty("name"), tableData);
         }
-        tableData.addRow(rowData);;
 
-        this.rowsLoaded++;
+        List<MySqlParser.ExpressionsWithDefaultsContext> rowValues = ctx.insertStatementValue().expressionsWithDefaults();
+        for (MySqlParser.ExpressionsWithDefaultsContext rowValue : rowValues) {
+            List<MySqlParser.ExpressionOrDefaultContext> values = rowValue.expressionOrDefault();
+            if (columns.size() != values.size()) {
+                hasError = true;
+                if (this.parsedFile != null) {
+                    LOGGER.error("Number of columns and values don't match in file " + parsedFile + " in line " + line + ": " + insertSql);
+                }
+                else {
+                    LOGGER.error("Number of columns and values don't match in line " + line + ": " + insertSql);
+                }
+                return;
+            }
 
-        if (this.rowsLoaded % 1000 == 0) {
-            LOGGER.info("Loaded " + this.rowsLoaded + " rows");
+            RowData rowData = new RowData();
+            for (int i = 0; i < columns.size(); i++) {
+                rowData.addField(columns.get(i), removeQuotes(values.get(i).getText()));
+            }
+
+            rowData.setInsertSql(insertSql);
+
+            tableData.addRow(rowData);
+
+            this.rowsLoaded++;
+
+            if (this.rowsLoaded % 1000 == 0) {
+                LOGGER.debug("Loaded " + this.rowsLoaded + " rows, current table: " + currentTable.getProperty("name"));
+            }
         }
     }
 
@@ -365,6 +425,15 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
 
     }
 
+
+    public void enterCreateProcedure(MySqlParser.CreateProcedureContext ctx) {
+        LOGGER.debug("enterCreateProcedure");
+        CharStream in = ctx.getStart().getInputStream();
+        String procedureSql = in.getText(Interval.of(ctx.getStart().getStartIndex(), ctx.getStop().getStopIndex()+1));
+        String name = ctx.fullId().getText();
+        this.db.setProcedure(name, procedureSql);
+    }
+
     private String removeQuotes(String text) {
         if (text == null) {
             return null;
@@ -376,6 +445,29 @@ public class ConcreteParserListener extends MySqlParserBaseListener {
             }
             text = text.substring(1, text.length() - 1);
         }
+    }
+
+    public void visitTerminal(TerminalNode node) {
+        LOGGER.debug("Terminal node: " + node.getText());
+    }
+    public void visitErrorNode(ErrorNode node) {
+        hasError = true;
+
+        int currentLine = node.getSymbol().getLine();
+        if (errLine == -1) { // 第一行错误
+            errLine = currentLine;
+            errorMessages.append("line:").append(node.getSymbol().getLine()).append(":");
+        }
+        // 解析器会将第一行错误开始之后的所有文本都当作错误，因此第一行错误处理完后，不再处理后续行
+        if (currentLine == errLine) {
+            errorMessages.append(node.getText()).append(" ");
+        }
+    }
+
+    public void enterShowErrors(MySqlParser.ShowErrorsContext ctx) {
+    }
+
+    public void enterShowCountErrors(MySqlParser.ShowCountErrorsContext ctx) {
     }
 
 }
